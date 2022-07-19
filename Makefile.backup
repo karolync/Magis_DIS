@@ -1,10 +1,9 @@
-# Simplified existing Makefile
-# Contact Sanha Cheong, sanha@stanford.edu for questions
-
 ################################################################################
 # Magis Makefile
 ################################################################################
-PROJECT_ROOT=./
+PROJECT_ROOT=../../
+OPT_INC = ${PROJECT_ROOT}/common/make/common_spin.mk
+-include ${OPT_INC}
 
 ################################################################################
 # Key paths and settings
@@ -12,8 +11,8 @@ PROJECT_ROOT=./
 CFLAGS += -std=c++11
 ifeq ($(wildcard ${OPT_INC}),)
 CXX = g++ ${CFLAGS}
-ODIR  = .obj/build
-SDIR  = ./src
+ODIR  = .obj/build${D}
+SDIR  = .
 MKDIR = mkdir -p
 PLATFORM = $(shell uname)
 ifeq ($(PLATFORM),Darwin)
@@ -21,23 +20,30 @@ OS = mac
 endif
 endif
 
-OUTPUTNAME = DISImageAcquisition
-OUTDIR = ./bin
+OUTPUTNAME = Magis${D}
+OUTDIR = ../../bin
 
 ################################################################################
 # Dependencies
 ################################################################################
-# Spinnaker library dependencies
-SPINNAKER_LIB = -L/opt/spinnaker/lib -lSpinnaker
+# Spinnaker deps
+SPINNAKER_LIB = -L../../lib -lSpinnaker${D} ${SPIN_DEPS}
 
 ################################################################################
 # Master inc/lib/obj/dep settings
 ################################################################################
-_OBJ = DISImageAcquisition.o
+_OBJ = Magis.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
-INC = -I./include
-INC += -I/opt/spinnaker/include
+INC = -I../../include
+ifneq ($(OS),mac)
+INC += -I/usr/include/spinnaker
 LIB += -Wl,-Bdynamic ${SPINNAKER_LIB}
+LIB += -Wl,-rpath-link=../../lib 
+else
+INC += -I/usr/local/include/spinnaker
+LIB += -rpath ../../lib/
+LIB += ${SPINNAKER_LIB}
+endif
 
 ################################################################################
 # Rules/recipes
