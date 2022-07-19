@@ -22,7 +22,7 @@ endif
 endif
 
 OUTPUTNAME = DISImageAcquisition
-OUTDIR = ./bin
+OUTDIR = ./bin${D}
 
 ################################################################################
 # Dependencies

@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 #include <typeinfo>
+#include <ctime>
 
 using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
@@ -126,9 +127,9 @@ int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice,
         return -1;
     }
 
-    const double exposureTimeMax = ptrExposureTime->GetMax();
+    const double exposureTimeMax = 30000000;
     if (exposureTime > exposureTimeMax) {
-        exposureTime = exposureTimeMax;
+        exposureTime = exposureTimeMax - 10;
     }
 
     ptrExposureTime->SetValue(exposureTime);
@@ -142,18 +143,19 @@ int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDev
     if (!IsAvailable(ptrAcquisitionMode)) {
         cout << "Unable to get acquisition mode" << endl;
         return -1;
-    } else if (IsWritable(ptrAcquisitionMode)) {
+    }
+    if (!IsWritable(ptrAcquisitionMode)) {
         cout << "Unable to write acquisition mode" << endl;
         return -1;
     } else {
-        CEnumEntryPtr ptrAcquisitionModeSingleFrame = ptrAcquisitionMode->GetEntryByName("Single Frame");
-        if(!IsAvailable(ptrAcquisitionModeSingleFrame) || !IsReadable(ptrAcquisitionModeSingleFrame)) {
-            cout << "Unable to set acquisition mode to single frame" << endl;
+        CEnumEntryPtr ptrAcquisitionModeContinuous = ptrAcquisitionMode->GetEntryByName("Continuous");
+        if(!IsAvailable(ptrAcquisitionModeContinuous) || !IsReadable(ptrAcquisitionModeContinuous)) {
+            cout << "Unable to set acquisition mode to continuous" << endl;
             return -1;
         }
-        const int64_t acquisitionModeSingleFrame = ptrAcquisitionModeSingleFrame->GetValue();
-        ptrAcquisitionMode->SetIntValue(acquisitionModeSingleFrame);
-        cout << "Acquisition mode set to single frame" << endl;
+        const int64_t acquisitionModeContinuous = ptrAcquisitionModeContinuous->GetValue();
+        ptrAcquisitionMode->SetIntValue(acquisitionModeContinuous);
+        cout << "Acquisition mode set to Continuous" << endl;
         return 0;
     }
 }
@@ -167,8 +169,10 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     } else {
         //optionally convert image at this point to different format
         ostringstream filename;
+	time_t now = time(0);
+	filename << "/home/pi/magis/data/DIS/lab_images/";
         filename << "Acquisition-";
-        filename << __DATE__ << __TIME__;
+       	filename << ctime(&now);
         filename << ".jpg";
         cout << "Saving image" << endl;
         pResultImage->Save(filename.str().c_str());
@@ -179,10 +183,10 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
 }
 
 int runSingleCamera(CameraPtr pCam) {
-    INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     pCam->Init();
+    INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     INodeMap& nodeMap = pCam->GetNodeMap();
-    //setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
+    setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
 
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
@@ -197,11 +201,11 @@ int runSingleCamera(CameraPtr pCam) {
 #endif
 
     PrintDeviceInfo(nodeMapTLDevice);
-    //modify device settings here
-    pCam->BeginAcquisition();
     cout << "camera in Acquisition Mode. << endl;" << endl; 
-    while(true) {
-        cout << "press c to take a photo, e to modify exposure time, x to quit" << endl;
+    //modify device settings here 
+    while (true) {
+        pCam->BeginAcquisition();
+	cout << "press c to take a photo, e to modify exposure time, x to quit" << endl;
         char input;
         cin >> input;
         cout << "Input: " << input << endl;
@@ -216,8 +220,8 @@ int runSingleCamera(CameraPtr pCam) {
             cin >> exposureTime;
             setExposureTime(pCam, nodeMap, nodeMapTLDevice, exposureTime);
         }
+	pCam->EndAcquisition();
     }
-    pCam->EndAcquisition();
     pCam->DeInit();
     return 0;
 }
