@@ -1,3 +1,19 @@
+/* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
+from parts of the spinnaker SDK examples. Program allows user to test out key
+functionality of working with the Spinnaker SDK API to interface with Flir
+Blackfly s cameras over software. In running takes no inputs, but generates a
+CLI in order to trigger the camera to take photos, and between photos optionally
+modify the exposure time. Photo files stored in /magis/data/DIS/lab_images.
+
+Call order in case of one camera detected:
+
+main calls runSingleCamera
+	runSingleCamera calls PrintDeviceInfo
+	runSingleCamera calls setAcquisitionMode
+	runSingleCamera calls getImage or setExposureTime
+		
+See function comments for more details. */
+
 //=============================================================================
 // Copyright (c) 2001-2019 FLIR Systems, Inc. All Rights Reserved.
 //
@@ -83,6 +99,8 @@ int DisableHeartbeat(INodeMap& nodeMap, INodeMap& nodeMapTLDevice)
 }
 #endif
 
+/* Function called by run camera function and prints out info about a camera. Takes
+as input nodeMap for the camera */ 
 int PrintDeviceInfo(INodeMap& nodeMap) {
     cout << endl << "*** DEVICE INFORMATION ***" << endl << endl;
     FeatureList_t features;
@@ -104,6 +122,9 @@ int PrintDeviceInfo(INodeMap& nodeMap) {
     }
 }
 
+/* Called by run camera function. Modifies exposure time for a camera. Takes as input
+pointer to the camera, the cameras nodeMap,the cameras nodeMapTLDevice, and the
+exposureTime in microseconds */
 int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice, int exposureTime) {
     CEnumerationPtr ptrExposureAuto = nodeMap.GetNode("ExposureAuto");
     if (!IsAvailable(ptrExposureAuto) || !IsWritable(ptrExposureAuto)) {
@@ -138,6 +159,8 @@ int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice,
     return 0;
 }
 
+/* Called by run camera function. Takes as input camera, cameras nodeMap, and cameras
+nodeMapTLDevice and sets the acquisition mode to Single Frame */
 int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
     if (!IsAvailable(ptrAcquisitionMode)) {
@@ -148,21 +171,25 @@ int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDev
         cout << "Unable to write acquisition mode" << endl;
         return -1;
     } else {
-        CEnumEntryPtr ptrAcquisitionModeContinuous = ptrAcquisitionMode->GetEntryByName("Continuous");
-        if(!IsAvailable(ptrAcquisitionModeContinuous) || !IsReadable(ptrAcquisitionModeContinuous)) {
+        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("Single Frame");
+        if(!IsAvailable(ptrAcquisitionModeType) || !IsReadable(ptrAcquisitionModeType)) {
             cout << "Unable to set acquisition mode to continuous" << endl;
             return -1;
         }
-        const int64_t acquisitionModeContinuous = ptrAcquisitionModeContinuous->GetValue();
-        ptrAcquisitionMode->SetIntValue(acquisitionModeContinuous);
-        cout << "Acquisition mode set to Continuous" << endl;
+        const int64_t acquisitionModeType = ptrAcquisitionModeType->GetValue();
+        ptrAcquisitionMode->SetIntValue(acquisitionModeType);
+        cout << "Acquisition mode set to Single Frame" << endl;
         return 0;
     }
 }
 
+/* Called by run camera function. Takes as input camera, camera nodeMap, and cameras
+nodeMapTLDevice. Acquires a single image and saves this image in the specified directory
+with the name Acquisition-(Date & time).jpg. Works under assumption that camera is in
+Acquisition mode. */
 int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     cout << "Getting Image" << endl;
-    ImagePtr pResultImage = pCam->GetNextImage();
+    ImagePtr pResultImage = pCam->GetNextImage(1000);
     if (pResultImage->IsIncomplete()) {
         cout << "Image incomplete: " << Image::GetImageStatusDescription(pResultImage->GetImageStatus()) << endl;
         return -1;
@@ -182,9 +209,13 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     }
 }
 
+/* Function called by main in case where only one camera connected. Function calls PrintDeviceInfo
+and setAcquisitionMode, setting up the camera and generates cli allowing user to take photos via
+function getImages and change exposure time via function setExposureTime. */
 int runSingleCamera(CameraPtr pCam) {
-    pCam->Init();
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
+    PrintDeviceInfo(nodeMapTLDevice);
+    pCam->Init();
     INodeMap& nodeMap = pCam->GetNodeMap();
     setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
 
@@ -200,11 +231,10 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    PrintDeviceInfo(nodeMapTLDevice);
-    cout << "camera in Acquisition Mode. << endl;" << endl; 
+    cout << "camera in Acquisition Mode" << endl; 
     //modify device settings here 
     while (true) {
-        pCam->BeginAcquisition();
+    	pCam->BeginAcquisition();
 	cout << "press c to take a photo, e to modify exposure time, x to quit" << endl;
         char input;
         cin >> input;
@@ -213,19 +243,22 @@ int runSingleCamera(CameraPtr pCam) {
             getImage(pCam, nodeMap, nodeMapTLDevice);
             cout << "Image acquired" << endl;
         } else if (input == 'x') {
-            break;
+	    pCam->EndAcquisition();
+	    break;
         } else if (input == 'e') {
             int exposureTime;
             cout << "new exposure time (microseconds):" << endl;
             cin >> exposureTime;
             setExposureTime(pCam, nodeMap, nodeMapTLDevice, exposureTime);
         }
-	pCam->EndAcquisition();
+    	pCam->EndAcquisition();
     }
     pCam->DeInit();
     return 0;
 }
 
+/* Main function takes as input no arguments. Determines number of cameras and calls corresponding run
+camera(s) function. */
 int main(int /*argc*/, char** /*argv*/) {
     FILE* tempFile = fopen("test.txt", "w+"); // checks if we have permission to write to the current folder
     if (tempFile == nullptr)
