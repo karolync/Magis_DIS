@@ -1,18 +1,4 @@
-/* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
-from parts of the spinnaker SDK examples. Program allows user to test out key
-functionality of working with the Spinnaker SDK API to interface with Flir
-Blackfly s cameras over software. In running takes no inputs, but generates a
-CLI in order to trigger the camera to take photos, and between photos optionally
-modify the exposure time. Photo files stored in /magis/data/DIS/lab_images.
-
-Call order in case of one camera detected:
-
-main calls runSingleCamera
-	runSingleCamera calls PrintDeviceInfo
-	runSingleCamera calls setAcquisitionMode
-	runSingleCamera calls getImage or setExposureTime
-		
-See function comments for more details. */
+/*  */
 
 //=============================================================================
 // Copyright (c) 2001-2019 FLIR Systems, Inc. All Rights Reserved.
@@ -42,6 +28,11 @@ using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
+
+#define minExpTime 10 //must be greater than __
+#define maxExpTime 100 //must be smaller than thirty million
+#define stepSize 5 //difference between values of exposure time to collect data at
+#define numPhotosPer 20 //number of phtoos to acquire at each exposure time
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -231,8 +222,8 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    cout << "camera in Acquisition Mode" << endl; 
-    //modify device settings here 
+    cout << "camera in Acquisition Mode. Beginning data acquisition" << endl;  
+    
     while (true) {
     	pCam->BeginAcquisition();
 	cout << "press c to take a photo, e to modify exposure time, x to quit" << endl;
@@ -308,16 +299,13 @@ int main(int /*argc*/, char** /*argv*/) {
         runSingleCamera(pCam);
 
         pCam = nullptr;
-    } else if (numCameras == 2) {
-        cout << "Two cameras detected" << endl;
+    } else if (numCameras > 2) {
         
-        CameraPtr pCam1 = camList.GetByIndex(0);
-        CameraPtr pCam2 = camList.GetByIndex(1);
-
-
-
-        pCam1 = nullptr;
-        pCam2 = nullptr;
+	camList.Clear();
+	system->ReleaseInstance();
+	cout << "Two cameras detected! Press Enter to exit." << endl;
+	getchar();
+	return -1;
     }
     camList.Clear();
     system->ReleaseInstance();
