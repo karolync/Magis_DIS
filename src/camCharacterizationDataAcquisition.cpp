@@ -226,7 +226,7 @@ int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDev
 nodeMapTLDevice. Acquires a single image and saves this image in the specified directory
 with the name Acquisition-(Date & time).jpg. Works under assumption that camera is in
 Acquisition mode. */
-int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, exposureTime, bitDepth, numPhoto) {
+int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int exposureTime, int bitDepth, int numPhoto) {
     ImagePtr pResultImage = pCam->GetNextImage(1000);
     if (pResultImage->IsIncomplete()) {
         cout << "Image incomplete: " << Image::GetImageStatusDescription(pResultImage->GetImageStatus()) << endl;
