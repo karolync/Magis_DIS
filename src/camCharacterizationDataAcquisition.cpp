@@ -1,4 +1,18 @@
-/*  */
+/* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
+from parts of the spinnaker SDK examples. Program allows user to test out key
+functionality of working with the Spinnaker SDK API to interface with Flir
+Blackfly s cameras over software. In running takes no inputs, but generates a
+CLI in order to trigger the camera to take photos, and between photos optionally
+modify the exposure time. Photo files stored in /magis/data/DIS/lab_images.
+
+Call order in case of one camera detected:
+
+main calls runSingleCamera
+	runSingleCamera calls PrintDeviceInfo
+	runSingleCamera calls setAcquisitionMode
+	runSingleCamera calls getImage or setExposureTime
+		
+See function comments for more details. */
 
 //=============================================================================
 // Copyright (c) 2001-2019 FLIR Systems, Inc. All Rights Reserved.
@@ -29,10 +43,10 @@ using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-#define minExpTime 10 //must be greater than __
-#define maxExpTime 100 //must be smaller than thirty million
-#define stepSize 5 //difference between values of exposure time to collect data at
-#define numPhotosPer 20 //number of phtoos to acquire at each exposure time
+#define minExposureTime = 8 // minimum exposuretime to test
+#define maxExposureTime = 29999999 // max exposuretime to test
+#define stepSize = 5 // step size between tested exposure times
+#define numPerExposureTime = 20 // number of photos to take at each exposure time
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -113,10 +127,39 @@ int PrintDeviceInfo(INodeMap& nodeMap) {
     }
 }
 
+/* Called by run camera function. Modifies ADC bit depth for passed in camera. Takes as input pointer to camera, camras nodeMAP, cameras nodeMapTLDevice, and the adc bit depth, which is either ten, twelve, or fourteen */
+int setADCBitDepth(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int bitDepth) {
+    CEnumerationPtr ptrBitDepth = nodeMap.GetNode("AdcBitDepth");
+    if (!IsAvailable(ptrBitDepth) || !IsWritable(ptrBitDepth)) {
+	cout << "unable to get or write to ADC bit depth node" << endl;
+	return -1;
+    } else {
+	CEnumEntryPtr ptrBitDepthType;
+	if (bitDepth == 10) {
+	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit10");
+	} else if (bitDepth == 12) {
+	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit12");
+	} else if (bitDepth == 14) {
+	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit14");
+	} else {
+	    cout << "Invalid input" << endl;
+	    return -1;
+	}
+        if(!IsAvailable(ptrBitDepthType) || !IsReadable(ptrBitDepthType)) {
+            cout << "Unable to set ADC bit depth to new value" << endl;
+            return -1;
+        }
+        const int64_t bitDepthType = ptrBitDepthType->GetValue();
+        ptrBitDepth->SetIntValue(bitDepthType);
+        cout << "Bit depth set to Bit" << bitDepth <<  endl;
+        return 0;
+    }
+}
+
 /* Called by run camera function. Modifies exposure time for a camera. Takes as input
 pointer to the camera, the cameras nodeMap,the cameras nodeMapTLDevice, and the
 exposureTime in microseconds */
-int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice, int exposureTime) {
+int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int exposureTime) {
     CEnumerationPtr ptrExposureAuto = nodeMap.GetNode("ExposureAuto");
     if (!IsAvailable(ptrExposureAuto) || !IsWritable(ptrExposureAuto)) {
         cout << "Unable to disable automatic exposure (node retrieval). Aborting..." << endl << endl;
@@ -140,8 +183,13 @@ int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice,
     }
 
     const double exposureTimeMax = 30000000;
-    if (exposureTime > exposureTimeMax) {
-        exposureTime = exposureTimeMax - 10;
+    const double exposureTimeMin = 8;
+    if (exposureTime >= exposureTimeMax) {
+        exposureTime = exposureTimeMax - 1;
+	cout << "Exposure time exceeds maximum" << endl;
+    } else if (exposureTime <= exposureTimeMin) {
+	exposureTime = exposureTimeMin + 1;
+	cout << "Exposure time below minimum" << endl;
     }
 
     ptrExposureTime->SetValue(exposureTime);
@@ -162,9 +210,9 @@ int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDev
         cout << "Unable to write acquisition mode" << endl;
         return -1;
     } else {
-        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("Single Frame");
+        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("SingleFrame");
         if(!IsAvailable(ptrAcquisitionModeType) || !IsReadable(ptrAcquisitionModeType)) {
-            cout << "Unable to set acquisition mode to continuous" << endl;
+            cout << "Unable to set acquisition mode to single frame" << endl;
             return -1;
         }
         const int64_t acquisitionModeType = ptrAcquisitionModeType->GetValue();
@@ -178,8 +226,7 @@ int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDev
 nodeMapTLDevice. Acquires a single image and saves this image in the specified directory
 with the name Acquisition-(Date & time).jpg. Works under assumption that camera is in
 Acquisition mode. */
-int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
-    cout << "Getting Image" << endl;
+int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, exposureTime, bitDepth, numPhoto) {
     ImagePtr pResultImage = pCam->GetNextImage(1000);
     if (pResultImage->IsIncomplete()) {
         cout << "Image incomplete: " << Image::GetImageStatusDescription(pResultImage->GetImageStatus()) << endl;
@@ -187,12 +234,11 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     } else {
         //optionally convert image at this point to different format
         ostringstream filename;
-	time_t now = time(0);
 	filename << "/home/pi/magis/data/DIS/lab_images/";
-        filename << "Acquisition-";
-       	filename << ctime(&now);
-        filename << ".jpg";
-        cout << "Saving image" << endl;
+        filename << "exp- " << exposureTime;
+       	filename << "-bitDepth-" << bitDepth;
+	filename << "-" << numPhoto;
+        filename << ".png";
         pResultImage->Save(filename.str().c_str());
         cout << "Image saved" << endl;
         pResultImage->Release();
@@ -201,8 +247,7 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
 }
 
 /* Function called by main in case where only one camera connected. Function calls PrintDeviceInfo
-and setAcquisitionMode, setting up the camera and generates cli allowing user to take photos via
-function getImages and change exposure time via function setExposureTime. */
+and setAcquisitionMode, setting up the camera and calls getImage for every combination of ADC bit depth and exposure time specified, as many times as specified. */
 int runSingleCamera(CameraPtr pCam) {
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     PrintDeviceInfo(nodeMapTLDevice);
@@ -222,27 +267,17 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    cout << "camera in Acquisition Mode. Beginning data acquisition" << endl;  
-    
-    while (true) {
-    	pCam->BeginAcquisition();
-	cout << "press c to take a photo, e to modify exposure time, x to quit" << endl;
-        char input;
-        cin >> input;
-        cout << "Input: " << input << endl;
-        if (input == 'c') {
-            getImage(pCam, nodeMap, nodeMapTLDevice);
-            cout << "Image acquired" << endl;
-        } else if (input == 'x') {
-	    pCam->EndAcquisition();
-	    break;
-        } else if (input == 'e') {
-            int exposureTime;
-            cout << "new exposure time (microseconds):" << endl;
-            cin >> exposureTime;
-            setExposureTime(pCam, nodeMap, nodeMapTLDevice, exposureTime);
-        }
-    	pCam->EndAcquisition();
+    cout << "beginning data acquisition" << endl;
+    for (int i = minExposureTime; i < maxExposureTime; i+= stepSize) {
+	setExposureTime(pCam, nodeMap, nodeMapTLDevice, i);
+	for(int y = 10; y <= 14; y+= 2) {
+	    setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, y);
+	    for(int z = 0; z < numPerExposureTime; z++) {
+		pCam->BeginAcquisition();
+		getImage(pCam, nodeMap, nodeMapTLDevice, i, y, z);
+		pCam->EndAcquisition();
+	    }	    
+	}
     }
     pCam->DeInit();
     return 0;
@@ -299,13 +334,16 @@ int main(int /*argc*/, char** /*argv*/) {
         runSingleCamera(pCam);
 
         pCam = nullptr;
-    } else if (numCameras > 2) {
+    } else if (numCameras == 2) {
+        cout << "Two cameras detected" << endl;
         
-	camList.Clear();
-	system->ReleaseInstance();
-	cout << "Two cameras detected! Press Enter to exit." << endl;
-	getchar();
-	return -1;
+        CameraPtr pCam1 = camList.GetByIndex(0);
+        CameraPtr pCam2 = camList.GetByIndex(1);
+
+
+
+        pCam1 = nullptr;
+        pCam2 = nullptr;
     }
     camList.Clear();
     system->ReleaseInstance();

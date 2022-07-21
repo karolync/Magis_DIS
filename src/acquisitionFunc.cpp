@@ -122,10 +122,39 @@ int PrintDeviceInfo(INodeMap& nodeMap) {
     }
 }
 
+/* Called by run camera function. Modifies ADC bit depth for passed in camera. Takes as input pointer to camera, camras nodeMAP, cameras nodeMapTLDevice, and the adc bit depth, which is either ten, twelve, or fourteen */
+int setADCBitDepth(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int bitDepth) {
+    CEnumerationPtr ptrBitDepth = nodeMap.GetNode("AdcBitDepth");
+    if (!IsAvailable(ptrBitDepth) || !IsWritable(ptrBitDepth)) {
+	cout << "unable to get or write to ADC bit depth node" << endl;
+	return -1;
+    } else {
+	CEnumEntryPtr ptrBitDepthType;
+	if (bitDepth == 10) {
+	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit10");
+	} else if (bitDepth == 12) {
+	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit12");
+	} else if (bitDepth == 14) {
+	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit14");
+	} else {
+	    cout << "Invalid input" << endl;
+	    return -1;
+	}
+        if(!IsAvailable(ptrBitDepthType) || !IsReadable(ptrBitDepthType)) {
+            cout << "Unable to set ADC bit depth to new value" << endl;
+            return -1;
+        }
+        const int64_t bitDepthType = ptrBitDepthType->GetValue();
+        ptrBitDepth->SetIntValue(bitDepthType);
+        cout << "Bit depth set to Bit" << bitDepth <<  endl;
+        return 0;
+    }
+}
+
 /* Called by run camera function. Modifies exposure time for a camera. Takes as input
 pointer to the camera, the cameras nodeMap,the cameras nodeMapTLDevice, and the
 exposureTime in microseconds */
-int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice, int exposureTime) {
+int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int exposureTime) {
     CEnumerationPtr ptrExposureAuto = nodeMap.GetNode("ExposureAuto");
     if (!IsAvailable(ptrExposureAuto) || !IsWritable(ptrExposureAuto)) {
         cout << "Unable to disable automatic exposure (node retrieval). Aborting..." << endl << endl;
@@ -149,10 +178,13 @@ int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodMapTLDevice,
     }
 
     const double exposureTimeMax = 30000000;
-    cout << "Max" << ptrExposureTime->GetMax();
-    cout << "Min" << ptrExposureTime->GetMin();
-    if (exposureTime > exposureTimeMax) {
-        exposureTime = exposureTimeMax - 10;
+    const double exposureTimeMin = 8;
+    if (exposureTime >= exposureTimeMax) {
+        exposureTime = exposureTimeMax - 1;
+	cout << "Exposure time exceeds maximum" << endl;
+    } else if (exposureTime <= exposureTimeMin) {
+	exposureTime = exposureTimeMin + 1;
+	cout << "Exposure time below minimum" << endl;
     }
 
     ptrExposureTime->SetValue(exposureTime);
@@ -237,23 +269,30 @@ int runSingleCamera(CameraPtr pCam) {
     //modify device settings here 
     while (true) {
     	pCam->BeginAcquisition();
-	cout << "press c to take a photo, e to modify exposure time, x to quit" << endl;
+	cout << "press c to take a photo, e to modify exposure time, b to modify adc bit depth, and x to quit" << endl;
         char input;
         cin >> input;
         cout << "Input: " << input << endl;
         if (input == 'c') {
             getImage(pCam, nodeMap, nodeMapTLDevice);
             cout << "Image acquired" << endl;
+	    pCam->EndAcquisition();
         } else if (input == 'x') {
 	    pCam->EndAcquisition();
 	    break;
         } else if (input == 'e') {
-            int exposureTime;
+            pCam->EndAcquisition();
+	    int exposureTime;
             cout << "new exposure time (microseconds):" << endl;
             cin >> exposureTime;
             setExposureTime(pCam, nodeMap, nodeMapTLDevice, exposureTime);
-        }
-    	pCam->EndAcquisition();
+        } else if (input == 'b') {
+            pCam->EndAcquisition();
+	    int bitDepth;
+	    cout << "bit10: 10, bit12: 12, bit14: 14" << endl;
+	    cin >> bitDepth;
+	    setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, bitDepth);
+	}
     }
     pCam->DeInit();
     return 0;
