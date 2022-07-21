@@ -21,7 +21,7 @@ OS = mac
 endif
 endif
 
-OUTPUTNAME = camCharacterizationDataAcquisition 
+OUTPUTNAME = acquisitionFunc
 OUTDIR = ./bin${D}
 
 ################################################################################
@@ -33,7 +33,7 @@ SPINNAKER_LIB = -L/opt/spinnaker/lib -lSpinnaker
 ################################################################################
 # Master inc/lib/obj/dep settings
 ################################################################################
-_OBJ = camCharacterizationDataAcquisition.o
+_OBJ = acquisitionFunc.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 INC = -I./include
 INC += -I/opt/spinnaker/include

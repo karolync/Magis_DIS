@@ -43,10 +43,10 @@ using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-#define minExposureTime = 8 // minimum exposuretime to test
-#define maxExposureTime = 29999999 // max exposuretime to test
-#define stepSize = 5 // step size between tested exposure times
-#define numPerExposureTime = 20 // number of photos to take at each exposure time
+#define minExposureTime 10  // minimum exposuretime to test
+#define maxExposureTime 100  // max exposuretime to test
+#define stepSize 5  // step size between tested exposure times
+#define numPerExposureTime 5  // number of photos to take at each exposure time
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors

@@ -1,9 +1,10 @@
+# Simplified existing Makefile
+# Contact Sanha Cheong, sanha@stanford.edu for questions
+
 ################################################################################
-# Magis Makefile
+# Magis DIS Makefile
 ################################################################################
-PROJECT_ROOT=../../
-OPT_INC = ${PROJECT_ROOT}/common/make/common_spin.mk
--include ${OPT_INC}
+PROJECT_ROOT=./
 
 ################################################################################
 # Key paths and settings
@@ -11,8 +12,8 @@ OPT_INC = ${PROJECT_ROOT}/common/make/common_spin.mk
 CFLAGS += -std=c++11
 ifeq ($(wildcard ${OPT_INC}),)
 CXX = g++ ${CFLAGS}
-ODIR  = .obj/build${D}
-SDIR  = .
+ODIR  = .obj/build
+SDIR  = ./src
 MKDIR = mkdir -p
 PLATFORM = $(shell uname)
 ifeq ($(PLATFORM),Darwin)
@@ -20,34 +21,28 @@ OS = mac
 endif
 endif
 
-OUTPUTNAME = Magis${D}
-OUTDIR = ../../bin
+OUTPUTNAME = camCharacterizationDataAcquisition 
+OUTDIR = ./bin${D}
 
 ################################################################################
 # Dependencies
 ################################################################################
-# Spinnaker deps
-SPINNAKER_LIB = -L../../lib -lSpinnaker${D} ${SPIN_DEPS}
+# Spinnaker library dependencies
+SPINNAKER_LIB = -L/opt/spinnaker/lib -lSpinnaker
 
 ################################################################################
 # Master inc/lib/obj/dep settings
 ################################################################################
-_OBJ = Magis.o
+_OBJ = camCharacterizationDataAcquisition.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
-INC = -I../../include
-ifneq ($(OS),mac)
-INC += -I/usr/include/spinnaker
+INC = -I./include
+INC += -I/opt/spinnaker/include
 LIB += -Wl,-Bdynamic ${SPINNAKER_LIB}
-LIB += -Wl,-rpath-link=../../lib 
-else
-INC += -I/usr/local/include/spinnaker
-LIB += -rpath ../../lib/
-LIB += ${SPINNAKER_LIB}
-endif
 
 ################################################################################
 # Rules/recipes
 ################################################################################
+# Final binary
 # Final binary
 ${OUTPUTNAME}: ${OBJ}
 	${CXX} -o ${OUTPUTNAME} ${OBJ} ${LIB}
@@ -67,3 +62,6 @@ clean_obj:
 clean: clean_obj
 	rm -f ${OUTDIR}/${OUTPUTNAME}
 	@echo "all cleaned up!"
+
+
+
