@@ -173,9 +173,9 @@ int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDev
         cout << "Unable to write acquisition mode" << endl;
         return -1;
     } else {
-        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("Single Frame");
+        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("SingleFrame");
         if(!IsAvailable(ptrAcquisitionModeType) || !IsReadable(ptrAcquisitionModeType)) {
-            cout << "Unable to set acquisition mode to continuous" << endl;
+            cout << "Unable to set acquisition mode to single frame" << endl;
             return -1;
         }
         const int64_t acquisitionModeType = ptrAcquisitionModeType->GetValue();
@@ -202,7 +202,7 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
 	filename << "/home/pi/magis/data/DIS/lab_images/";
         filename << "Acquisition-";
        	filename << ctime(&now);
-        filename << ".jpg";
+        filename << ".png";
         cout << "Saving image" << endl;
         pResultImage->Save(filename.str().c_str());
         cout << "Image saved" << endl;
