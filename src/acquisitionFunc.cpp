@@ -234,7 +234,7 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
 	filename << "/home/pi/magis/data/DIS/lab_images/";
         filename << "Acquisition-";
        	filename << ctime(&now);
-        filename << ".png";
+        filename << ".raw";
         cout << "Saving image" << endl;
         pResultImage->Save(filename.str().c_str());
         cout << "Image saved" << endl;

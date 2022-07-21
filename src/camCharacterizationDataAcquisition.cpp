@@ -43,10 +43,10 @@ using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-#define minExposureTime 10  // minimum exposuretime to test
+#define minExposureTime 20  // minimum exposuretime to test
 #define maxExposureTime 100  // max exposuretime to test
-#define stepSize 5  // step size between tested exposure times
-#define numPerExposureTime 5  // number of photos to take at each exposure time
+#define stepSize 40  // step size between tested exposure times
+#define numPerExposureTime 3  // number of photos to take at each exposure time
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -238,7 +238,7 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int e
         filename << "exp- " << exposureTime;
        	filename << "-bitDepth-" << bitDepth;
 	filename << "-" << numPhoto;
-        filename << ".png";
+        filename << ".raw";
         pResultImage->Save(filename.str().c_str());
         cout << "Image saved" << endl;
         pResultImage->Release();
@@ -268,7 +268,7 @@ int runSingleCamera(CameraPtr pCam) {
 #endif
 
     cout << "beginning data acquisition" << endl;
-    for (int i = minExposureTime; i < maxExposureTime; i+= stepSize) {
+    for (int i = minExposureTime; i <= maxExposureTime; i+= stepSize) {
 	setExposureTime(pCam, nodeMap, nodeMapTLDevice, i);
 	for(int y = 10; y <= 14; y+= 2) {
 	    setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, y);
