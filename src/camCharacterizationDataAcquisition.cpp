@@ -8,10 +8,10 @@ modify the exposure time. Photo files stored in /magis/data/DIS/lab_images.
 Call order in case of one camera detected:
 
 main calls runSingleCamera
-	runSingleCamera calls PrintDeviceInfo
-	runSingleCamera calls setAcquisitionMode
-	runSingleCamera calls getImage or setExposureTime
-		
+    runSingleCamera calls PrintDeviceInfo
+    runSingleCamera calls setAcquisitionMode
+    runSingleCamera calls getImage or setExposureTime
+        
 See function comments for more details. */
 
 //=============================================================================
@@ -37,16 +37,20 @@ See function comments for more details. */
 #include <sstream>
 #include <typeinfo>
 #include <ctime>
+#include <vector>
 
 using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-#define minExposureTime 20  // minimum exposuretime to test
-#define maxExposureTime 100  // max exposuretime to test
-#define stepSize 40  // step size between tested exposure times
-#define numPerExposureTime 3  // number of photos to take at each exposure time
+// #define minExposureTime 20  // minimum exposuretime to test
+// #define maxExposureTime 100  // max exposuretime to test
+// #define stepSize 40  // step size between tested exposure times
+#define numPerSettings 20  // number of photos to take at each exposure time
+#define DATA_BASE "/home/pi/magis/data/"
+#define DATA_DIR "DIS/lab/20220722/"
+#define RUN_NUM "run_01"
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -131,20 +135,20 @@ int PrintDeviceInfo(INodeMap& nodeMap) {
 int setADCBitDepth(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int bitDepth) {
     CEnumerationPtr ptrBitDepth = nodeMap.GetNode("AdcBitDepth");
     if (!IsAvailable(ptrBitDepth) || !IsWritable(ptrBitDepth)) {
-	cout << "unable to get or write to ADC bit depth node" << endl;
-	return -1;
+    cout << "unable to get or write to ADC bit depth node" << endl;
+    return -1;
     } else {
-	CEnumEntryPtr ptrBitDepthType;
-	if (bitDepth == 10) {
-	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit10");
-	} else if (bitDepth == 12) {
-	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit12");
-	} else if (bitDepth == 14) {
-	    ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit14");
-	} else {
-	    cout << "Invalid input" << endl;
-	    return -1;
-	}
+    CEnumEntryPtr ptrBitDepthType;
+    if (bitDepth == 10) {
+        ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit10");
+    } else if (bitDepth == 12) {
+        ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit12");
+    } else if (bitDepth == 14) {
+        ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit14");
+    } else {
+        cout << "Invalid input" << endl;
+        return -1;
+    }
         if(!IsAvailable(ptrBitDepthType) || !IsReadable(ptrBitDepthType)) {
             cout << "Unable to set ADC bit depth to new value" << endl;
             return -1;
@@ -186,10 +190,10 @@ int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice
     const double exposureTimeMin = 8;
     if (exposureTime >= exposureTimeMax) {
         exposureTime = exposureTimeMax - 1;
-	cout << "Exposure time exceeds maximum" << endl;
+    cout << "Exposure time exceeds maximum" << endl;
     } else if (exposureTime <= exposureTimeMin) {
-	exposureTime = exposureTimeMin + 1;
-	cout << "Exposure time below minimum" << endl;
+    exposureTime = exposureTimeMin + 1;
+    cout << "Exposure time below minimum" << endl;
     }
 
     ptrExposureTime->SetValue(exposureTime);
@@ -234,10 +238,14 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int e
     } else {
         //optionally convert image at this point to different format
         ostringstream filename;
-	filename << "/home/pi/magis/data/DIS/lab_images/";
-        filename << "exp- " << exposureTime;
-       	filename << "-bitDepth-" << bitDepth;
-	filename << "-" << numPhoto;
+        filename << DATA_BASE << DATA_DIR << RUN_NUM << '/';
+        // filename << "/home/pi/magis/data/DIS/lab_images/20220722/run_01/";
+        filename << "img";
+        filename << "_exp" << exposureTime << "us";
+        filename << "_bitDepth" << bitDepth;
+        char ind[12];
+        sprintf(ind, "%03d", numPhoto + 1); // index is zero-based, but I'd like files to be one-based
+        filename << "_" << ind;
         filename << ".raw";
         pResultImage->Save(filename.str().c_str());
         cout << "Image saved" << endl;
@@ -251,7 +259,6 @@ and setAcquisitionMode, setting up the camera and calls getImage for every combi
 int runSingleCamera(CameraPtr pCam) {
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     PrintDeviceInfo(nodeMapTLDevice);
-    pCam->Init();
     INodeMap& nodeMap = pCam->GetNodeMap();
     setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
 
@@ -267,19 +274,28 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    cout << "beginning data acquisition" << endl;
-    for (int i = minExposureTime; i <= maxExposureTime; i+= stepSize) {
-	setExposureTime(pCam, nodeMap, nodeMapTLDevice, i);
-	for(int y = 10; y <= 14; y+= 2) {
-	    setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, y);
-	    for(int z = 0; z < numPerExposureTime; z++) {
-		pCam->BeginAcquisition();
-		getImage(pCam, nodeMap, nodeMapTLDevice, i, y, z);
-		pCam->EndAcquisition();
-	    }	    
-	}
+    // Set of exposure times: 25us to 200ms
+    // vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
+    vector<int> exposureTimeList = {};
+    for (int t_exp = 5000; t_exp <= 200000; t_exp += 5000) {
+        exposureTimeList.push_back(t_exp);
     }
-    pCam->DeInit();
+
+    cout << "beginning data acquisition" << endl;
+
+    for (int t_exp : exposureTimeList) {
+        pCam->Init();
+        setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
+        for(int bit_depth = 10; bit_depth <= 14; bit_depth += 2) {
+            setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, bit_depth);
+            for(int i = 0; i < numPerSettings; i++) {
+                pCam->BeginAcquisition();
+                getImage(pCam, nodeMap, nodeMapTLDevice, t_exp, bit_depth, i);
+                pCam->EndAcquisition();
+            }
+        }
+        pCam->DeInit();
+    }
     return 0;
 }
 
