@@ -1,16 +1,7 @@
 /* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
-from parts of the spinnaker SDK examples. Program allows user to test out key
+from parts of the spinnaker SDK examples. Program allows user to write scripts to modify features of spinnaker SDK blackfly model s cameras and acquire images over software
 functionality of working with the Spinnaker SDK API to interface with Flir
-Blackfly s cameras over software. In running takes no inputs, but generates a
-CLI in order to trigger the camera to take photos, and between photos optionally
-modify the exposure time. Photo files stored in /magis/data/DIS/lab_images.
-
-Call order in case of one camera detected:
-
-main calls runSingleCamera
-    runSingleCamera calls PrintDeviceInfo
-    runSingleCamera calls setAcquisitionMode
-    runSingleCamera calls getImage or setExposureTime
+Blackfly s cameras over software.
         
 See function comments for more details. */
 
@@ -38,6 +29,7 @@ See function comments for more details. */
 #include <typeinfo>
 #include <ctime>
 #include <vector>
+#include "include/features.cpp"
 
 using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
@@ -49,8 +41,8 @@ using namespace std;
 // #define stepSize 40  // step size between tested exposure times
 #define numPerSettings 20  // number of photos to take at each exposure time
 #define DATA_BASE "/home/pi/magis/data/"
-#define DATA_DIR "DIS/lab/20220722/"
-#define RUN_NUM "run_01"
+#define DATA_DIR "DIS/lab/20220725/"
+#define RUN_NUM "run_02"
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -108,127 +100,8 @@ int DisableHeartbeat(INodeMap& nodeMap, INodeMap& nodeMapTLDevice)
 }
 #endif
 
-/* Function called by run camera function and prints out info about a camera. Takes
-as input nodeMap for the camera */ 
-int PrintDeviceInfo(INodeMap& nodeMap) {
-    cout << endl << "*** DEVICE INFORMATION ***" << endl << endl;
-    FeatureList_t features;
-    const CCategoryPtr category = nodeMap.GetNode("DeviceInformation");
-    if (IsAvailable(category) && IsReadable(category)) {
-        category->GetFeatures(features);
-
-        for (auto it = features.begin(); it != features.end(); ++it) {
-            const CNodePtr pfeatureNode = *it;
-            cout << pfeatureNode->GetName() << " : ";
-            CValuePtr pValue = static_cast<CValuePtr>(pfeatureNode);
-            cout << (IsReadable(pValue) ? pValue->ToString() : "Node not readable");
-            cout << endl;
-        }
-        return 0;
-    } else {
-        cout << "Device control information not available." << endl;
-        return -1;
-    }
-}
-
-/* Called by run camera function. Modifies ADC bit depth for passed in camera. Takes as input pointer to camera, camras nodeMAP, cameras nodeMapTLDevice, and the adc bit depth, which is either ten, twelve, or fourteen */
-int setADCBitDepth(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int bitDepth) {
-    CEnumerationPtr ptrBitDepth = nodeMap.GetNode("AdcBitDepth");
-    if (!IsAvailable(ptrBitDepth) || !IsWritable(ptrBitDepth)) {
-    cout << "unable to get or write to ADC bit depth node" << endl;
-    return -1;
-    } else {
-    CEnumEntryPtr ptrBitDepthType;
-    if (bitDepth == 10) {
-        ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit10");
-    } else if (bitDepth == 12) {
-        ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit12");
-    } else if (bitDepth == 14) {
-        ptrBitDepthType = ptrBitDepth->GetEntryByName("Bit14");
-    } else {
-        cout << "Invalid input" << endl;
-        return -1;
-    }
-        if(!IsAvailable(ptrBitDepthType) || !IsReadable(ptrBitDepthType)) {
-            cout << "Unable to set ADC bit depth to new value" << endl;
-            return -1;
-        }
-        const int64_t bitDepthType = ptrBitDepthType->GetValue();
-        ptrBitDepth->SetIntValue(bitDepthType);
-        cout << "Bit depth set to Bit" << bitDepth <<  endl;
-        return 0;
-    }
-}
-
-/* Called by run camera function. Modifies exposure time for a camera. Takes as input
-pointer to the camera, the cameras nodeMap,the cameras nodeMapTLDevice, and the
-exposureTime in microseconds */
-int setExposureTime(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int exposureTime) {
-    CEnumerationPtr ptrExposureAuto = nodeMap.GetNode("ExposureAuto");
-    if (!IsAvailable(ptrExposureAuto) || !IsWritable(ptrExposureAuto)) {
-        cout << "Unable to disable automatic exposure (node retrieval). Aborting..." << endl << endl;
-        return -1;
-    }
-
-    CEnumEntryPtr ptrExposureAutoOff = ptrExposureAuto->GetEntryByName("Off");
-    if (!IsAvailable(ptrExposureAutoOff) || !IsReadable(ptrExposureAutoOff)) {
-        cout << "Unable to disable automatic exposure (enum entry retrieval). Aborting..." << endl << endl;
-        return -1;
-    }
-
-    ptrExposureAuto->SetIntValue(ptrExposureAutoOff->GetValue());
-
-    cout << "Automatic exposure disabled..." << endl;
-
-    CFloatPtr ptrExposureTime = nodeMap.GetNode("ExposureTime");
-    if (!IsAvailable(ptrExposureTime) || !IsWritable(ptrExposureTime)) {
-        cout << "Unable to set exposure time. Aborting..." << endl << endl;
-        return -1;
-    }
-
-    const double exposureTimeMax = 30000000;
-    const double exposureTimeMin = 8;
-    if (exposureTime >= exposureTimeMax) {
-        exposureTime = exposureTimeMax - 1;
-    cout << "Exposure time exceeds maximum" << endl;
-    } else if (exposureTime <= exposureTimeMin) {
-    exposureTime = exposureTimeMin + 1;
-    cout << "Exposure time below minimum" << endl;
-    }
-
-    ptrExposureTime->SetValue(exposureTime);
-
-    cout << std::fixed << "Exposure time set to " << exposureTime << " us..." << endl << endl;
-    return 0;
-}
-
-/* Called by run camera function. Takes as input camera, cameras nodeMap, and cameras
-nodeMapTLDevice and sets the acquisition mode to Single Frame */
-int setAcquisitionMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
-    CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
-    if (!IsAvailable(ptrAcquisitionMode)) {
-        cout << "Unable to get acquisition mode" << endl;
-        return -1;
-    }
-    if (!IsWritable(ptrAcquisitionMode)) {
-        cout << "Unable to write acquisition mode" << endl;
-        return -1;
-    } else {
-        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("SingleFrame");
-        if(!IsAvailable(ptrAcquisitionModeType) || !IsReadable(ptrAcquisitionModeType)) {
-            cout << "Unable to set acquisition mode to single frame" << endl;
-            return -1;
-        }
-        const int64_t acquisitionModeType = ptrAcquisitionModeType->GetValue();
-        ptrAcquisitionMode->SetIntValue(acquisitionModeType);
-        cout << "Acquisition mode set to Single Frame" << endl;
-        return 0;
-    }
-}
-
 /* Called by run camera function. Takes as input camera, camera nodeMap, and cameras
-nodeMapTLDevice. Acquires a single image and saves this image in the specified directory
-with the name Acquisition-(Date & time).jpg. Works under assumption that camera is in
+nodeMapTLDevice. Acquires a single image and saves this image in the specified directory. Works under assumption that camera is in
 Acquisition mode. */
 int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int exposureTime, int bitDepth, int numPhoto) {
     ImagePtr pResultImage = pCam->GetNextImage(1000);
@@ -254,13 +127,10 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int e
     }
 }
 
-/* Function called by main in case where only one camera connected. Function calls PrintDeviceInfo
-and setAcquisitionMode, setting up the camera and calls getImage for every combination of ADC bit depth and exposure time specified, as many times as specified. */
+/* Function called by main in case where only one camera connected. Can be modified to write custom script to run camera to acquire certain sets of images. Takes as input camera pointer, handled in main function. */
 int runSingleCamera(CameraPtr pCam) {
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     PrintDeviceInfo(nodeMapTLDevice);
-    INodeMap& nodeMap = pCam->GetNodeMap();
-    setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
 
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
@@ -274,10 +144,14 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    // Set of exposure times: 25us to 200ms
-    // vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
+    // Set of exposure times: 25us to 5000us
     vector<int> exposureTimeList = {};
-    for (int t_exp = 5000; t_exp <= 200000; t_exp += 5000) {
+    // vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
+    // for (int t_exp = 3000; t_exp <= 5000; t_exp += 500) {
+    //     exposureTimeList.push_back(t_exp);
+    // }
+    // larger exposure times: 5ms onwards
+    for (int t_exp = 105000; t_exp <= 200000; t_exp += 5000) {
         exposureTimeList.push_back(t_exp);
     }
 
@@ -285,7 +159,10 @@ int runSingleCamera(CameraPtr pCam) {
 
     for (int t_exp : exposureTimeList) {
         pCam->Init();
+        INodeMap& nodeMap = pCam->GetNodeMap();
+        setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
         setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
+
         for(int bit_depth = 10; bit_depth <= 14; bit_depth += 2) {
             setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, bit_depth);
             for(int i = 0; i < numPerSettings; i++) {
@@ -294,6 +171,21 @@ int runSingleCamera(CameraPtr pCam) {
                 pCam->EndAcquisition();
             }
         }
+        
+        cout << "Uploading data to Sanha's GFPS space" << endl;
+        ostringstream scp_command;
+        scp_command << "sshpass -p \"\" ";
+        scp_command << "scp -r " << DATA_BASE << DATA_DIR << RUN_NUM << "/* ";
+        scp_command << "sanha@centos7.slac.stanford.edu:/gpfs/slac/atlas/fs1/u/sanha/gpfs-storage/data_storage/magis/data/" << DATA_DIR << RUN_NUM << "/";
+        system(scp_command.str().c_str());
+        cout << "Upload complete!" << endl;
+
+        cout << "Removing data from local space" << endl;
+        ostringstream rm_command;
+        rm_command << "rm " << DATA_BASE << DATA_DIR << RUN_NUM << "/*";
+        system(rm_command.str().c_str());
+        cout << "Removal complete!" << endl;
+
         pCam->DeInit();
     }
     return 0;
