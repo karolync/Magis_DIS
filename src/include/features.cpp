@@ -36,8 +36,7 @@ using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-/*
-int set(string attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, string value) {
+int set(char *attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, char *value) {
     CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode(attribute);
     if (!IsAvailable(ptrAcquisitionMode)) {
         cout << attribute << " not recognized" << endl;
@@ -58,8 +57,6 @@ int set(string attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTL
         return 0;
     }   
 }
-*/
-
 
 /* Function called by run camera function and prints out info about a camera. Takes
 as input nodeMap for the camera */

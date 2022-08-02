@@ -20,13 +20,14 @@ See function comments for more details. */
 // THIS SOFTWARE OR ITS DERIVATIVES.
 //=============================================================================
 
-#include "Spinnaker.h"
-#include "SpinGenApi/SpinnakerGenApi.h"
+//#include "Spinnaker.h"
+//#include "SpinGenApi/SpinnakerGenApi.h"
 #include <iostream>
 #include <sstream>
 #include <typeinfo>
 #include <ctime>
 #include <vector>
+#include <fstream>
 #include "include/features.cpp"
 
 using namespace Spinnaker;
@@ -37,10 +38,41 @@ using namespace std;
 // #define minExposureTime 20  // minimum exposuretime to test
 // #define maxExposureTime 100  // max exposuretime to test
 // #define stepSize 40  // step size between tested exposure times
-#define numPerSettings 20  // number of photos to take at each exposure time
-#define DATA_BASE "/home/pi/magis/data/"
-#define DATA_DIR "DIS/lab/20220801/"
-#define RUN_NUM "run_02"
+int numPerSettings;  // number of photos to take at each exposure time
+string DATA_BASE;
+string DATA_DIR;
+string RUN_NUM;
+
+int loadConfiguration(string filename) {
+    ifstream in("./config/" + filename);
+    if (!in.is_open()) {
+        cout << "Unable to open config file" << endl;
+        return -1;
+    }
+    string param;
+    while (!in.eof()) {
+        in >> param;
+        if (param == "numPerSettings") {
+            int value;
+            in >> value;
+            numPerSettings = value;
+        } else if (param == "DATA_BASE") {
+            string value;
+            in >> value;
+            DATA_BASE = value;
+        } else if (param == "DATA_DIR") {
+            string value;
+            in >> value;
+            DATA_DIR = value;
+        } else if (param == "RUN_NUM") {
+            string value;
+            in >> value;
+            RUN_NUM = value;
+        }
+    }
+    in.close();
+    return 0;
+}
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -194,7 +226,12 @@ int runSingleCamera(CameraPtr pCam) {
 
 /* Main function takes as input no arguments. Determines number of cameras and calls corresponding run
 camera(s) function. */
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+    if(loadConfiguration(argv[1]) == -1) {
+        return -1;
+    } else {
+        cout << DATA_DIR << endl;
+    }
     FILE* tempFile = fopen("test.txt", "w+"); // checks if we have permission to write to the current folder
     if (tempFile == nullptr)
     {
