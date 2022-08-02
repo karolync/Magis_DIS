@@ -38,6 +38,7 @@ See function comments for more details. */
 #include <typeinfo>
 #include <ctime>
 #include "include/features.cpp"
+//#include "include/relayControl.cpp"
 
 using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
@@ -114,7 +115,7 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
         //optionally convert image at this point to different format
         ostringstream filename;
 	time_t now = time(0);
-	filename << "/home/pi/magis/data/DIS/lab_images/";
+	filename << "/home/pi/magis/data/DIS/lab/";
         filename << "Acquisition-";
        	filename << ctime(&now);
         filename << ".raw";
@@ -129,13 +130,14 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
 /* Function called by main in case where only one camera connected. Function calls PrintDeviceInfo
 and setAcquisitionMode, setting up the camera and generates cli allowing user to take photos via
 function getImages, change exposure time via function setExposureTime, change adc bit depth via function setADCBitDepth, and change shutter mode via function setShutterMode */
-int runSingleCamera(CameraPtr pCam) {
+int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     PrintDeviceInfo(nodeMapTLDevice);
     pCam->Init();
     INodeMap& nodeMap = pCam->GetNodeMap();
     setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
-
+    setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
+    setupRelay();
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
 
@@ -151,8 +153,9 @@ int runSingleCamera(CameraPtr pCam) {
     cout << "camera in Acquisition Mode" << endl; 
     //modify device settings here 
     while (true) {
+        cout << 9 << endl;
     	pCam->BeginAcquisition();
-	    cout << "press c to take a photo, s to modify shutter mode, e to modify exposure time, b to modify adc bit depth, and x to quit" << endl;
+	    cout << "press c to take a photo, s to modify shutter mode, p to modify pixel format, e to modify exposure time, b to modify adc bit depth, o to turn camera off, and x to quit" << endl;
         char input;
         cin >> input;
         cout << "Input: " << input << endl;
@@ -181,6 +184,44 @@ int runSingleCamera(CameraPtr pCam) {
             cout << "Rolling: 0, Global Reset: 1" << endl;
             cin >> shutterMode;
             setShutterMode(pCam, nodeMap, nodeMapTLDevice, shutterMode);
+        } else if (input == 'p') {
+            pCam->EndAcquisition();
+            int pixelFormat;
+            cout << "Mono8: 8, Mono16: 16" << endl;
+            cin >> pixelFormat;
+            setPixelFormat(pCam, nodeMap, nodeMapTLDevice, pixelFormat);
+        } else if (input == 'o') {
+            /* pCam->EndAcquisition();
+            pCam->DeInit();
+            pCam = nullptr;
+            camList.Clear();
+            system->ReleaseInstance();*/
+            openRelay();
+            while(true) {
+                char input;
+                cout << "press o to turn back on" << endl;
+                cin >> input;
+                if(input == 'o') {
+                    closeRelay();
+                    //main(0, "")
+                    /* cout << 1 << endl;
+                    camList = system->GetCameras();
+                    cout << 2 << endl;
+                    pCam = camList.GetByIndex(0);
+                    cout << 3 << endl;
+                    nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
+                    cout << 4 << endl;
+                    pCam->Init();
+                    cout << 5 << endl;
+                    nodeMap = pCam->GetNodeMap();
+                    cout << 6 << endl;
+                    setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
+                    cout << 7 << endl;
+                    setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
+                    cout << 8 << endl;
+                    break; */
+                }
+            }
         }
     }
     pCam->DeInit();
@@ -211,8 +252,7 @@ int main(int /*argc*/, char** /*argv*/) {
     cout << "Spinnaker library version: " << spinnakerLibraryVersion.major << "." << spinnakerLibraryVersion.minor
          << "." << spinnakerLibraryVersion.type << "." << spinnakerLibraryVersion.build << endl
          << endl;
-
-    // Retrieve list of cameras from the system
+    
     CameraList camList = system->GetCameras();
 
     const unsigned int numCameras = camList.GetSize();
@@ -233,23 +273,22 @@ int main(int /*argc*/, char** /*argv*/) {
         return -1;
     } else if (numCameras == 1) {
         cout << "One camera detected" << endl;
-        
+
         CameraPtr pCam = camList.GetByIndex(0);
-        runSingleCamera(pCam);
+        runSingleCamera(pCam, system, camList);
 
         pCam = nullptr;
     } else if (numCameras == 2) {
         cout << "Two cameras detected" << endl;
-        
+
         CameraPtr pCam1 = camList.GetByIndex(0);
         CameraPtr pCam2 = camList.GetByIndex(1);
-
-
 
         pCam1 = nullptr;
         pCam2 = nullptr;
     }
     camList.Clear();
+    
     system->ReleaseInstance();
     return 0;
 }
