@@ -1,7 +1,5 @@
 /* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
-from parts of the spinnaker SDK examples. Program allows user to write scripts to modify features of spinnaker SDK blackfly model s cameras and acquire images over software
-functionality of working with the Spinnaker SDK API to interface with Flir
-Blackfly s cameras over software.
+from parts of the spinnaker SDK examples. Program allows user to write scripts to modify features of spinnaker SDK blackfly model s cameras and acquire images over software.
         
 See function comments for more details. */
 
@@ -41,7 +39,7 @@ using namespace std;
 // #define stepSize 40  // step size between tested exposure times
 #define numPerSettings 20  // number of photos to take at each exposure time
 #define DATA_BASE "/home/pi/magis/data/"
-#define DATA_DIR "DIS/lab/20220725/"
+#define DATA_DIR "DIS/lab/20220801/"
 #define RUN_NUM "run_02"
 
 #ifdef _DEBUG
@@ -145,15 +143,16 @@ int runSingleCamera(CameraPtr pCam) {
 #endif
 
     // Set of exposure times: 25us to 5000us
-    vector<int> exposureTimeList = {};
-    // vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
-    // for (int t_exp = 3000; t_exp <= 5000; t_exp += 500) {
-    //     exposureTimeList.push_back(t_exp);
-    // }
-    // larger exposure times: 5ms onwards
-    for (int t_exp = 105000; t_exp <= 200000; t_exp += 5000) {
+    vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
+    // vector<int> exposureTimeList = {};
+    for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
         exposureTimeList.push_back(t_exp);
     }
+    // larger exposure times: 5ms onwards
+    // vector<int> exposureTimeList = {};
+    // for (int t_exp = 105000; t_exp <= 200000; t_exp += 5000) {
+    //     exposureTimeList.push_back(t_exp);
+    // }
 
     cout << "beginning data acquisition" << endl;
 
@@ -161,7 +160,9 @@ int runSingleCamera(CameraPtr pCam) {
         pCam->Init();
         INodeMap& nodeMap = pCam->GetNodeMap();
         setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
+        setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 16);
         setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
+        setShutterMode(pCam, nodeMap, nodeMapTLDevice, 1);
 
         for(int bit_depth = 10; bit_depth <= 14; bit_depth += 2) {
             setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, bit_depth);

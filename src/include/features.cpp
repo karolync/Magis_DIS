@@ -1,7 +1,7 @@
 /* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
 from parts of the spinnaker SDK examples. Program includes functions that allow users
 to modify features of blackfly model s cameras over software using the Spinnaker SDK
-API.  and acquire images over software. File is intended to be used as  a dependency
+API. File is intended to be used as  a dependency
 for programs a directory up.
         
 See function comments for more details. */
@@ -35,6 +35,31 @@ using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
+
+/*
+int set(string attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, string value) {
+    CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode(attribute);
+    if (!IsAvailable(ptrAcquisitionMode)) {
+        cout << attribute << " not recognized" << endl;
+        return -1;
+    }
+    if (!IsWritable(ptrAcquisitionMode)) {
+        cout << attribute << " not writable" << endl;
+        return -1;
+    } else {
+        CEnumEntryPtr ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName(value);
+        if(!IsAvailable(ptrAcquisitionModeType) || !IsReadable(ptrAcquisitionModeType)) {
+            cout << "Unable to set " << attribute << " to " << value << endl;
+            return -1;
+        }
+        const int64_t acquisitionModeType = ptrAcquisitionModeType->GetValue();
+        ptrAcquisitionMode->SetIntValue(acquisitionModeType);
+        cout << attribute << " set successfully to " << value << endl;
+        return 0;
+    }   
+}
+*/
+
 
 /* Function called by run camera function and prints out info about a camera. Takes
 as input nodeMap for the camera */
@@ -121,6 +146,41 @@ int setShutterMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice,
         return 0;
     }
 }
+
+/* Called by run camera function. Takes as input camera, cameras nodeMap, cameras nodeMapZTLDevice, and an integer representing choice of pixel format, where 8 corresponds to mono8, and 16 to mono16 */
+int setPixelFormat(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int mode) {
+    CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("PixelFormat");
+    if (!IsAvailable(ptrAcquisitionMode)) {
+        cout << "Unable to get Pixel Format" << endl;
+        return -1;
+    }
+    if (!IsWritable(ptrAcquisitionMode)) {
+        cout << "Unable to write Pixel Format" << endl;
+        return -1;
+    } else {
+        CEnumEntryPtr ptrAcquisitionModeType;
+        if (mode != 8 && mode != 16) {
+            cout << "invalid Pixel Format input" << endl;
+            return -1;
+        }
+        if (mode == 8) {
+            cout << "Setting pixel format to mono8" << endl;
+            ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("Mono8");
+        } else {
+            cout << "Setting pixel format to mono16" << endl;
+            ptrAcquisitionModeType = ptrAcquisitionMode->GetEntryByName("Mono16");
+        }
+        if(!IsAvailable(ptrAcquisitionModeType) || !IsReadable(ptrAcquisitionModeType)) {
+            cout << "Unable to set pixel format" << endl;
+            return -1;
+        }
+        const int64_t acquisitionModeType = ptrAcquisitionModeType->GetValue();
+        ptrAcquisitionMode->SetIntValue(acquisitionModeType);
+        cout << "Pixel format set successfully" << endl;
+        return 0;
+    }
+}
+
 
 /* Called by run camera function. Modifies exposure time for a camera. Takes as input
 pointer to the camera, the cameras nodeMap,the cameras nodeMapTLDevice, and the
