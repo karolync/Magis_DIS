@@ -1,8 +1,7 @@
 /* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
 from parts of the spinnaker SDK examples. Program includes functions that allow users
 to modify features of blackfly model s cameras over software using the Spinnaker SDK
-API. File is intended to be used as  a dependency
-for programs a directory up.
+API. File is intended to be used as a dependency for programs a directory up.
         
 See function comments for more details. */
 
@@ -36,7 +35,12 @@ using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-int set(char *attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, char *value) {
+/* Generic function that allows for the modification of any camera feature variable.
+ * Takes as input string representing attribute, camera poitner, nodemap, nodemaptldevice,
+ * and string representing value to set attribute to. Correct formatting and names for
+ * both attribute and attribute values related to the camera can be found on the camera's
+ * technical reference webpage, linked in the project Readme */
+int set(gcstring attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, gcstring value) {
     CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode(attribute);
     if (!IsAvailable(ptrAcquisitionMode)) {
         cout << attribute << " not recognized" << endl;
@@ -81,7 +85,9 @@ int PrintDeviceInfo(INodeMap& nodeMap) {
     }
 }
 
-/* Called by run camera function. Modifies ADC bit depth for passed in camera. Takes as input pointer to camera, camras nodeMAP, cameras nodeMapTLDevice, and the adc bit depth, which is either ten, twelve, or fourteen */
+/* Called by run camera function. Modifies ADC bit depth for passed in camera. Takes
+ * as input pointer to camera, camras nodeMAP, cameras nodeMapTLDevice, and the adc bit
+ * depth, which is either ten, twelve, or fourteen */
 int setADCBitDepth(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int bitDepth) {
     CEnumerationPtr ptrBitDepth = nodeMap.GetNode("AdcBitDepth");
     if (!IsAvailable(ptrBitDepth) || !IsWritable(ptrBitDepth)) {
@@ -110,7 +116,9 @@ int setADCBitDepth(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice,
     }
 }
 
-/* Called by run camera function. Takes as input camera, cameras nodeMap, cameras nodeMapZTLDevice, and an integer representing choice of shutter mode, where zero corresponds to rolling shutter, and 1 to global reset */
+/* Called by run camera function. Takes as input camera, cameras nodeMap, cameras
+ * nodeMapZTLDevice, and an integer representing choice of shutter mode, where zero
+ * corresponds to rolling shutter, and 1 to global reset */
 int setShutterMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int mode) {
     CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("SensorShutterMode");
     if (!IsAvailable(ptrAcquisitionMode)) {
@@ -144,7 +152,9 @@ int setShutterMode(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice,
     }
 }
 
-/* Called by run camera function. Takes as input camera, cameras nodeMap, cameras nodeMapZTLDevice, and an integer representing choice of pixel format, where 8 corresponds to mono8, and 16 to mono16 */
+/* Called by run camera function. Takes as input camera, cameras nodeMap, cameras
+ * nodeMapZTLDevice, and an integer representing choice of pixel format, where 8
+ * corresponds to mono8, and 16 to mono16 */
 int setPixelFormat(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int mode) {
     CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("PixelFormat");
     if (!IsAvailable(ptrAcquisitionMode)) {

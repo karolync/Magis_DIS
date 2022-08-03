@@ -137,7 +137,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     INodeMap& nodeMap = pCam->GetNodeMap();
     set("AcquisitionMode", pCam, nodeMap, nodeMapTLDevice, "SingleFrame");
     setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
-    setupRelay();
+    //setupRelay();
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
 
@@ -155,7 +155,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     while (true) {
         cout << 9 << endl;
     	pCam->BeginAcquisition();
-	    cout << "press c to take a photo, s to modify shutter mode, p to modify pixel format, e to modify exposure time, b to modify adc bit depth, o to turn camera off, and x to quit" << endl;
+	    cout << "press c to take a photo, s to modify shutter mode, p to modify pixel format, e to modify exposure time, b to modify adc bit depth, a to modify any camera attribute, o to turn camera off, and x to quit" << endl;
         char input;
         cin >> input;
         cout << "Input: " << input << endl;
@@ -166,9 +166,21 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
         } else if (input == 'x') {
 	        pCam->EndAcquisition();
 	        break;
-        } else if (input == 'e') {
+        } else if (input == 'a') {
             pCam->EndAcquisition();
-	        int exposureTime;
+            gcstring attribute;
+            cout << "Please enter the attribute you'd like to modify (see technical reference)" << endl;
+            cin >> attribute;
+            gcstring value;
+            cout << "Please enter the value you'd like to change " << attribute << " to." << endl;
+            cin >> value;
+            cout << "Attempting to change " << attribute << " to " << value << endl;
+            if(set(attribute, pCam, nodeMap, nodeMapTLDevice, value) == 0) {
+                cout << "Success" << endl;
+            } 
+        } else if (input == 'e') {
+	        pCam->EndAcquisition();
+            int exposureTime;
             cout << "new exposure time (microseconds):" << endl;
             cin >> exposureTime;
             setExposureTime(pCam, nodeMap, nodeMapTLDevice, exposureTime);
@@ -191,18 +203,18 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
             cin >> pixelFormat;
             setPixelFormat(pCam, nodeMap, nodeMapTLDevice, pixelFormat);
         } else if (input == 'o') {
-            /* pCam->EndAcquisition();
-            pCam->DeInit();
+            pCam->EndAcquisition();
+            /*pCam->DeInit();
             pCam = nullptr;
             camList.Clear();
             system->ReleaseInstance();*/
-            openRelay();
+            //openRelay();
             while(true) {
                 char input;
                 cout << "press o to turn back on" << endl;
                 cin >> input;
                 if(input == 'o') {
-                    closeRelay();
+                    //closeRelay();
                     //main(0, "")
                     /* cout << 1 << endl;
                     camList = system->GetCameras();
@@ -222,6 +234,9 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
                     break; */
                 }
             }
+        } else {
+            pCam->EndAcquisition();
+            cout << "Input not valid" << endl;
         }
     }
     pCam->DeInit();
