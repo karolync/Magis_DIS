@@ -142,17 +142,30 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
+    // For rolling shutter:
     // Set of exposure times: 25us to 5000us
-    vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
+    // vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
     // vector<int> exposureTimeList = {};
-    for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
-        exposureTimeList.push_back(t_exp);
-    }
+    // for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
+    //     exposureTimeList.push_back(t_exp);
+    // }
     // larger exposure times: 5ms onwards
     // vector<int> exposureTimeList = {};
     // for (int t_exp = 105000; t_exp <= 200000; t_exp += 5000) {
     //     exposureTimeList.push_back(t_exp);
     // }
+    // For global reset: (min. exposure time is 350us)
+    // Set of exposure times: 700us to 5000us
+    // vector<int> exposureTimeList = {700, 800};
+    // vector<int> exposureTimeList = {};
+    // for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
+    //     exposureTimeList.push_back(t_exp);
+    // }
+    // larger exposure times: 5ms onwards
+    vector<int> exposureTimeList = {};
+    for (int t_exp = 180000; t_exp <= 200000; t_exp += 5000) {
+        exposureTimeList.push_back(t_exp);
+    }
 
     cout << "beginning data acquisition" << endl;
 
@@ -161,8 +174,8 @@ int runSingleCamera(CameraPtr pCam) {
         INodeMap& nodeMap = pCam->GetNodeMap();
         setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
         setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 16);
-        setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
         setShutterMode(pCam, nodeMap, nodeMapTLDevice, 1);
+        setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
 
         for(int bit_depth = 10; bit_depth <= 14; bit_depth += 2) {
             setADCBitDepth(pCam, nodeMap, nodeMapTLDevice, bit_depth);
@@ -175,7 +188,7 @@ int runSingleCamera(CameraPtr pCam) {
         
         cout << "Uploading data to Sanha's GFPS space" << endl;
         ostringstream scp_command;
-        scp_command << "sshpass -p \"\" ";
+        scp_command << "sshpass -p \"Dbslrtm^#81\" ";
         scp_command << "scp -r " << DATA_BASE << DATA_DIR << RUN_NUM << "/* ";
         scp_command << "sanha@centos7.slac.stanford.edu:/gpfs/slac/atlas/fs1/u/sanha/gpfs-storage/data_storage/magis/data/" << DATA_DIR << RUN_NUM << "/";
         system(scp_command.str().c_str());
