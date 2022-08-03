@@ -135,7 +135,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     PrintDeviceInfo(nodeMapTLDevice);
     pCam->Init();
     INodeMap& nodeMap = pCam->GetNodeMap();
-    setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
+    set("AcquisitionMode", pCam, nodeMap, nodeMapTLDevice, "SingleFrame");
     setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
     setupRelay();
 #ifdef _DEBUG
