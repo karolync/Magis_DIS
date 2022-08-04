@@ -21,7 +21,7 @@ OS = mac
 endif
 endif
 
-OUTPUTNAME = camCharacterizationDataAcquisition 
+OUTPUTNAME = acquisitionFunc
 OUTDIR = ./bin${D}
 
 ################################################################################
@@ -29,16 +29,17 @@ OUTDIR = ./bin${D}
 ################################################################################
 # Spinnaker library dependencies
 SPINNAKER_LIB = -L/opt/spinnaker/lib -lSpinnaker
+LGPIO_LIB = -L/home/pi/lg/lgpio.h
 
 ################################################################################
 # Master inc/lib/obj/dep settings
 ################################################################################
-_OBJ = camCharacterizationDataAcquisition.o
+_OBJ = acquisitionFunc.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 INC = -I./include
 INC += -I/opt/spinnaker/include
-LIB += -Wl,-Bdynamic ${SPINNAKER_LIB}
-
+LIB += -Wl,-Bdynamic ${SPINNAKER_LIB} ${LGPIO_LIB}
+ 
 ################################################################################
 # Rules/recipes
 ################################################################################

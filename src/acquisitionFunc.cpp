@@ -38,7 +38,7 @@ See function comments for more details. */
 #include <typeinfo>
 #include <ctime>
 #include "include/features.cpp"
-//#include "include/relayControl.cpp"
+#include "include/relayControl.cpp"
 
 using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
@@ -137,7 +137,6 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     INodeMap& nodeMap = pCam->GetNodeMap();
     set("AcquisitionMode", pCam, nodeMap, nodeMapTLDevice, "SingleFrame");
     setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
-    //setupRelay();
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
 
@@ -153,7 +152,6 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     cout << "camera in Acquisition Mode" << endl; 
     //modify device settings here 
     while (true) {
-        cout << 9 << endl;
     	pCam->BeginAcquisition();
 	    cout << "press c to take a photo, s to modify shutter mode, p to modify pixel format, e to modify exposure time, b to modify adc bit depth, a to modify any camera attribute, o to turn camera off, and x to quit" << endl;
         char input;
@@ -208,13 +206,13 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
             pCam = nullptr;
             camList.Clear();
             system->ReleaseInstance();*/
-            //openRelay();
+            openRelay();
             while(true) {
                 char input;
                 cout << "press o to turn back on" << endl;
                 cin >> input;
                 if(input == 'o') {
-                    //closeRelay();
+                    closeRelay();
                     //main(0, "")
                     /* cout << 1 << endl;
                     camList = system->GetCameras();
@@ -255,6 +253,9 @@ int main(int /*argc*/, char** /*argv*/) {
     }
     fclose(tempFile);
     remove("test.txt");
+
+    setupRelay();
+    closeRelay();
 
     // Print application build information
     cout << "Application build date: " << __DATE__ << " " << __TIME__ << endl << endl;
