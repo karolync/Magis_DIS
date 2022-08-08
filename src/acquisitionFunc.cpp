@@ -228,8 +228,8 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
                     setAcquisitionMode(pCam, nodeMap, nodeMapTLDevice);
                     cout << 7 << endl;
                     setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
-                    cout << 8 << endl;
-                    break; */
+                    cout << 8 << endl; */
+                    break;
                 }
             }
         } else {

@@ -5,30 +5,29 @@
  * See function comments for more details. */
 
 #include <iostream>
-#include "<lgpio.h>"
+extern "C" {
+    #include <wiringPi.h>
+}
 #include <stdio.h>
 #include <stdlib.h>
 
-#define out 4
+#define out 23
 
 using namespace std;
 
-int h;
-int lFlags;
-
 void closeRelay() {
     cout << "Closing relay" << endl;
-    lgGpioWrite(h, out, 1);
+    digitalWrite(out, true);
 }
 
 void openRelay() {
-    lgGpioWrite(h, out, 0);
+    cout << "Opening relay" << endl;
+    digitalWrite(out, false);
 }
 
 void setupRelay() {
-    lFlags = 0;
-    h = lgGpiochipOpen(0);
-    lgGpioClaimOutput(h, lFlags, out, 0);
+    wiringPiSetup();
+    pinMode(out, OUTPUT);
 }
 
 

@@ -28,8 +28,8 @@ OUTDIR = ./bin${D}
 # Dependencies
 ################################################################################
 # Spinnaker library dependencies
-SPINNAKER_LIB = -L/opt/spinnaker/lib -lSpinnaker
-LGPIO_LIB = -L/home/pi/lg/lgpio.h
+SPINNAKER_LIB = -L/usr/spinnaker/lib -lSpinnaker
+LGPIO_LIB = -lwiringPi
 
 ################################################################################
 # Master inc/lib/obj/dep settings
@@ -37,7 +37,7 @@ LGPIO_LIB = -L/home/pi/lg/lgpio.h
 _OBJ = acquisitionFunc.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 INC = -I./include
-INC += -I/opt/spinnaker/include
+INC += -I/usr/include/spinnaker
 LIB += -Wl,-Bdynamic ${SPINNAKER_LIB} ${LGPIO_LIB}
  
 ################################################################################
