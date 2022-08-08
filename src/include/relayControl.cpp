@@ -4,33 +4,44 @@
  *		
  * See function comments for more details. */
 
+#include "Spinnaker.h"
+#include "SpinGenApi/SpinnakerGenApi.h"
 #include <iostream>
-extern "C" {
-    #include <wiringPi.h>
-}
+#include <wiringPi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#define out 23
+#define RELAY_NUM 5 //Somehow pin 5 digitially maps to pin 24 on the pi
+#define CAM_NUM 4 // somehow pin 4 digitally  maps to pin 23 on the pi
 
 using namespace std;
+using namespace Spinnaker;
+using namespace Spinnaker::GenApi;
+using namespace Spinnaker::GenICam;
 
 void closeRelay() {
     cout << "Closing relay" << endl;
-    digitalWrite(out, true);
+    digitalWrite(RELAY_NUM, true);
 }
 
 void openRelay() {
     cout << "Opening relay" << endl;
-    digitalWrite(out, false);
+    digitalWrite(RELAY_NUM, false);
 }
 
-void setupRelay() {
+void inputFunction() {
+    cout << "input recieved" << endl;
+}
+
+void setupGPIO(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
+    cout << "Setting up relay on gpio pin " << RELAY_NUM << endl;
     wiringPiSetup();
-    pinMode(out, OUTPUT);
+    pinMode(RELAY_NUM, OUTPUT);
+    set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line1");
+    set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
+    set("LineSource", pCam, nodeMap, nodeMapTLDevice, "ExposureActive");
+    wiringPiISR(CAM_NUM, INT_EDGE_RISING, inputFunction);
 }
-
-
 
 
 

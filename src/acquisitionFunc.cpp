@@ -136,6 +136,8 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     pCam->Init();
     INodeMap& nodeMap = pCam->GetNodeMap();
     set("AcquisitionMode", pCam, nodeMap, nodeMapTLDevice, "SingleFrame");
+    setupGPIO(pCam, nodeMap, nodeMapTLDevice);
+    closeRelay();
     setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 8);
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
@@ -254,9 +256,6 @@ int main(int /*argc*/, char** /*argv*/) {
     fclose(tempFile);
     remove("test.txt");
 
-    setupRelay();
-    closeRelay();
-
     // Print application build information
     cout << "Application build date: " << __DATE__ << " " << __TIME__ << endl << endl;
 
@@ -303,6 +302,7 @@ int main(int /*argc*/, char** /*argv*/) {
         pCam1 = nullptr;
         pCam2 = nullptr;
     }
+    openRelay();
     camList.Clear();
     
     system->ReleaseInstance();

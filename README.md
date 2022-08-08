@@ -11,4 +11,6 @@ DC -- PI --(usb 3)-- Pi-controlled Relay --(usb 3)--\        /--(usb 3)-- Cam 3 
 DC -- Pi-controlled Relay --------------------------/        \--(usb 3)-- Cam 1
 
 
+Spinnaker SDK API User Manual: http://softwareservices.flir.com/Spinnaker/latest/examples.html
+
 Technical Reference for Camera: http://softwareservices.flir.com/BFS-U3-63S4/latest/Model/public/index.html?_ga=2.65493806.1496873635.1659466903-1933567677.1659466900&_gl=1*1rw8way*_ga*MTkzMzU2NzY3Ny4xNjU5NDY2OTAw*_ga_CYF2N4QDDM*MTY1OTQ2Njg5OC4xLjEuMTY1OTQ2Njk0NS4xOA..*_fplc*JTJGVCUyRiUyQlNrQ1BBVWhqOEttT0xSQnolMkJiaUpDM3gxdGNIQ2slMkJwQ3NHclkyUyUyQldrZGlQd0ZaWXJ3RXZjWTBEMUhYSXg5alFzN3EyZmdLWnJKWmZ4Z2xRMCUyQnpJUXZ0bWNlRlRvejVmckpDaHdISlprM2ZqQTFaZGYyWU1oa0RWOGclM0QlM0Q.
