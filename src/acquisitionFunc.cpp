@@ -209,12 +209,15 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
             camList.Clear();
             system->ReleaseInstance();*/
             openRelay();
+	    set("UserOutputSelector", pCam, nodeMap, nodeMapTLDevice, "UserOutput0");
+	    setBool("UserOutputValue", pCam, nodeMap, nodeMapTLDevice, false);
             while(true) {
                 char input;
                 cout << "press o to turn back on" << endl;
                 cin >> input;
                 if(input == 'o') {
                     closeRelay();
+		    setBool("UserOutputValue", pCam, nodeMap, nodeMapTLDevice, true);
                     //main(0, "")
                     /* cout << 1 << endl;
                     camList = system->GetCameras();

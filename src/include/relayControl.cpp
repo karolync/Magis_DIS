@@ -28,18 +28,16 @@ void openRelay() {
     digitalWrite(RELAY_NUM, false);
 }
 
-void inputFunction() {
-    cout << "input recieved" << endl;
-}
-
 void setupGPIO(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     cout << "Setting up relay on gpio pin " << RELAY_NUM << endl;
     wiringPiSetup();
     pinMode(RELAY_NUM, OUTPUT);
-    set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
-    set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
+    set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line1");
     setBool("V3_3Enable", pCam, nodeMap, nodeMapTLDevice, true);
-    set("LineSource", pCam, nodeMap, nodeMapTLDevice, "ExposureActive");
+    set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
+    set("UserOutputSelector", pCam, nodeMap, nodeMapTLDevice, "UserOutput0");
+    setBool("UserOutputValue", pCam, nodeMap, nodeMapTLDevice, true);
+    set("LineSource", pCam, nodeMap, nodeMapTLDevice, "UserOutput0");
 }
 
 
