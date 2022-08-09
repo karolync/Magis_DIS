@@ -62,6 +62,23 @@ int set(gcstring attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMap
     }   
 }
 
+int setBool(gcstring attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, bool value) {
+    CBooleanPtr ptrAcquisitionMode = nodeMap.GetNode(attribute);
+    if (!IsAvailable(ptrAcquisitionMode)) {
+        cout << attribute << " not recognized" << endl;
+        return -1;
+    }
+    if (!IsWritable(ptrAcquisitionMode)) {
+        cout << attribute << " not writable" << endl;
+        return -1;
+    } else {
+        ptrAcquisitionMode->SetValue(value);
+	cout << attribute << " set successfully to " << value << endl;
+        return 0;
+    }   
+}
+
+
 /* Function called by run camera function and prints out info about a camera. Takes
 as input nodeMap for the camera */
 int PrintDeviceInfo(INodeMap& nodeMap) {

@@ -12,7 +12,6 @@
 #include <stdlib.h>
 
 #define RELAY_NUM 5 //Somehow pin 5 digitially maps to pin 24 on the pi
-#define CAM_NUM 4 // somehow pin 4 digitally  maps to pin 23 on the pi
 
 using namespace std;
 using namespace Spinnaker;
@@ -37,10 +36,10 @@ void setupGPIO(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     cout << "Setting up relay on gpio pin " << RELAY_NUM << endl;
     wiringPiSetup();
     pinMode(RELAY_NUM, OUTPUT);
-    set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line1");
+    set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
     set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
+    setBool("V3_3Enable", pCam, nodeMap, nodeMapTLDevice, true);
     set("LineSource", pCam, nodeMap, nodeMapTLDevice, "ExposureActive");
-    wiringPiISR(CAM_NUM, INT_EDGE_RISING, inputFunction);
 }
 
 
