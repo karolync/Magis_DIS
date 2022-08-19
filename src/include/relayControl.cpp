@@ -32,11 +32,6 @@ void setupGPIO(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
     cout << "Setting up relay on gpio pin " << RELAY_NUM << endl;
     wiringPiSetup();
     pinMode(RELAY_NUM, OUTPUT);
-    set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
-    set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
-    //set("UserOutputSelector", pCam, nodeMap, nodeMapTLDevice, "UserOutput0");
-    //setBool("UserOutputValue", pCam, nodeMap, nodeMapTLDevice, true);
-    set("LineSource", pCam, nodeMap, nodeMapTLDevice, "ExposureActive");
 }
 
 
