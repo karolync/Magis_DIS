@@ -233,27 +233,6 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     return 0;
 }
 
-int runFake() {
-    wiringPiSetup();
-    pinMode(5, OUTPUT);
-    closeRelay();
-    while(true) {
-	char input;
-	cin >> input;
-	if (input == 'o') {
-	    openRelay();
-	    while(true) {
-		char input2;
-		cin >> input2;
-		if (input2 == 'o') {
-		    closeRelay();
-		    break;
-		}
-	    }
-	}
-    }
-}
-
 /* Main function takes as input no arguments. Determines number of cameras and calls corresponding run
 camera(s) function. */
 int main(int /*argc*/, char** /*argv*/) {
@@ -266,15 +245,6 @@ int main(int /*argc*/, char** /*argv*/) {
     }
     fclose(tempFile);
     remove("test.txt");
-
-
-
-    runFake();
-
-
-
-
-
 
     // Print application build information
     cout << "Application build date: " << __DATE__ << " " << __TIME__ << endl << endl;

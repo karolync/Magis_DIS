@@ -29,7 +29,6 @@ using std::chrono::nanoseconds;
 typedef std::chrono::high_resolution_clock clock;
 
 FILE *logFile;
-#define pin 20
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
