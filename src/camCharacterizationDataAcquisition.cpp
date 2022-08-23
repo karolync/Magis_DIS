@@ -30,39 +30,6 @@ string DATA_BASE;
 string DATA_DIR;
 string RUN_NUM;
 
-/* Function to generate custom vector of exposure times to test the camera. Should be customly written by
-user aquiring data to suit their purposes. */
-vector<int> get_exposure_times() {
-    
-    //For rolling shutter:
-    //Set of exposure times: 25us to 5000us
-    /*
-    vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
-    for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
-        exposureTimeList.push_back(t_exp);
-    }
-    larger exposure times: 5ms onwards
-    vector<int> exposureTimeList = {};
-    for (int t_exp = 105000; t_exp <= 200000; t_exp += 5000) {
-        exposureTimeList.push_back(t_exp);
-    }*/
-
-
-    //For global reset: (min. exposure time is 350us)
-    //Set of exposure times: 700us to 5000us
-
-    vector<int> exposureTimeList = {700, 800};
-    for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
-        exposureTimeList.push_back(t_exp);
-    }
-    larger exposure times: 5ms onwards
-    for (int t_exp = 180000; t_exp <= 200000; t_exp += 5000) {
-        exposureTimeList.push_back(t_exp);
-    }
-
-    return exposureTimeList;
-}
-
 int loadConfiguration(string filename) {
     ifstream in(filename);
     if (!in.is_open()) {
@@ -201,7 +168,7 @@ int runSingleCamera(CameraPtr pCam) {
         cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    vector<int> exposureTimeList = get_exposure_times()
+    vector<int> exposureTimeList = get_exposure_times("RollingShutter");
 
     cout << "beginning data acquisition" << endl;
 

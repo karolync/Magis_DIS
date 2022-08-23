@@ -14,21 +14,23 @@ See function comments for more details.*/
 #include <iostream>
 #include <sstream>
 #include <typeinfo>
-#include <ctime>
-#include <chrono>
+#include <wiringPi.h>
+#include <stdio.h>
+#include <fstream>
+#include <time.h>
 #include <string>
 #include "include/features.cpp"
+#include <future>
 
 using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 using namespace std;
 
-using std::chrono::duration_cast;
-using std::chrono::nanoseconds;
-typedef std::chrono::high_resolution_clock clock;
+std::ofstream myfile;
 
-FILE *logFile;
+#define FILE_NAME "anyPixel.csv"
+#define CAM_NUM 4  // somehow pin 4 digitially maps to pin 23 on the pi
 
 #ifdef _DEBUG
 // Disables heartbeat on GEV cameras so debugging does not incur timeout errors
@@ -83,33 +85,40 @@ int DisableHeartbeat(INodeMap& nodeMap, INodeMap& nodeMapTLDevice)
             cout << "Camera does not use GigE interface. Resuming normal execution..." << endl << endl;
         }
     }
-    return 0;
+    setBool("V3_3Enable", pCam, nodeMap, nodeMapTLDevice, true);
+return 0;
 }
 #endif
+
+clock_t listenForGPIO() {
+    while(digitalRead(CAM_NUM) == 0) {
+	continue;
+    }
+    return clock();
+}
 
 /* Called by run camera function. Takes as input camera, camera nodeMap, and cameras
 nodeMapTLDevice. Acquires a single image and saves this image in the specified directory
 with the name Acquisition-(Date & time).jpg. Works under assumption that camera is in
 Acquisition mode. */
-int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
-    cout << "Getting Image" << endl;
-    auto t = clock::now();
-    ImagePtr pResultImage = pCam->GetNextImage(1000);
-
+int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int t_exp) {
+    std::future<clock_t> f = std::async(std::launch::async, listenForGPIO);
+    ImagePtr pResultImage;
+    clock_t trigger = clock();
+    pResultImage = pCam->GetNextImage();
+    clock_t exposure = f.get();
+    myfile.open(FILE_NAME, std::ios::app);
+    myfile << exposure;
+    myfile << ",";
+    myfile << trigger;
+    myfile << ",";
+    myfile << t_exp;
+    myfile << "\n";
+    myfile.close();
     if (pResultImage->IsIncomplete()) {
         cout << "Image incomplete: " << Image::GetImageStatusDescription(pResultImage->GetImageStatus()) << endl;
         return -1;
     } else {
-        //optionally convert image at this point to different format
-        ostringstream filename;
-    time_t now = time(0);
-    filename << "/home/pi/magis/data/DIS/lab/";
-        filename << "Acquisition-";
-        filename << ctime(&now);
-        filename << ".raw";
-        cout << "Saving image" << endl;
-        pResultImage->Save(filename.str().c_str());
-        cout << "Image saved" << endl;
         pResultImage->Release();
         return 0;
     }
@@ -119,12 +128,15 @@ int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice) {
 and setAcquisitionMode, setting up the camera and generates cli allowing user to take photos via
 function getImages, change exposure time via function setExposureTime, change adc bit depth via function setADCBitDepth, and change shutter mode via function setShutterMode */
 int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
+    wiringPiSetup();
+    pinMode(CAM_NUM, INPUT);
+    myfile.open(FILE_NAME);
+    myfile << "GPIO Output,Trigger, Exposure Time, clock ticks per second=";
+    myfile << CLOCKS_PER_SEC;
+    myfile << "\n";
+    myfile.close();
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
-    printDeviceInfo(nodeMapTLDevice);
-    pCam->Init();
-    INodeMap& nodeMap = pCam->GetNodeMap();
-    set("AcquisitionMode", pCam, nodeMap, nodeMapTLDevice, "SingleFrame");
-    setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 16);
+    PrintDeviceInfo(nodeMapTLDevice);
 
 #ifdef _DEBUG
         cout << endl << endl << "*** DEBUG ***" << endl << endl;
@@ -135,22 +147,34 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
             return -1;
         }
 
-        cout << endl << endl << "*** END OF DEBUG ***" << endl << endl;
 #endif
 
-    for(int i = 0; i < numDataPoints; i++) {
-        pCam->BeginAcquisition();
-        getImage(pCam, nodeMap, nodeMapTLDevice);
-        pCam->EndAcquisition();
+    //vector<int> exposureTimeList = get_exposure_times("RollingShutter");
+    vector<int> exposureTimeList = {25, 800, 10000}; 
+    for (int t_exp : exposureTimeList) {
+	pCam->Init();
+   	INodeMap& nodeMap = pCam->GetNodeMap();
+   	set("AcquisitionMode", pCam, nodeMap, nodeMapTLDevice, "SingleFrame");
+  	setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 16);
+   	set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
+   	set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
+  	set("LineSource", pCam, nodeMap, nodeMapTLDevice, "AnyPixel");
+	setShutterMode(pCam, nodeMap, nodeMapTLDevice, 0);
+	setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
+	for(int i = 0; i < 10; i++) {
+	   pCam->BeginAcquisition();
+	   cout << "getting next image" << endl;
+	   getImage(pCam, nodeMap, nodeMapTLDevice, t_exp);
+	   pCam->EndAcquisition();
+	}
+	pCam->DeInit();
     }
-
+    return 0;
 }
-
 
 /* Main function takes as input no arguments. Determines number of cameras and calls corresponding run
 camera(s) function. */
 int main(int /*argc*/, char** /*argv*/) {
-    logFile = fopen("triggerDelay-" + to_string(ctime(&now)) + ".txt", "w+");
     // Print application build information
     cout << "Application build date: " << __DATE__ << " " << __TIME__ << endl << endl;
 
@@ -176,7 +200,6 @@ int main(int /*argc*/, char** /*argv*/) {
 
         // Release system
         system->ReleaseInstance();
-        fclose(logFile);
         cout << "Not enough or too many cameras! Press Enter to exit." << endl;
         getchar();
         return -1;
@@ -187,7 +210,6 @@ int main(int /*argc*/, char** /*argv*/) {
     pCam = nullptr;
     camList.Clear();
     system->ReleaseInstance();
-    fclose(logFile);
     return 0;
 }
 

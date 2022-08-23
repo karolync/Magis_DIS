@@ -35,7 +35,7 @@ _OBJ = triggerDelayTesting.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 INC = -I./include
 INC += -I/usr/include/spinnaker
-LIB += -Wl,-Bdynamic ${SPINNAKER_LIB} ${LGPIO_LIB}
+LIB += -Wl, ipthread -Bdynamic ${SPINNAKER_LIB} ${LGPIO_LIB}
  
 ################################################################################
 # Rules/recipes

@@ -4,7 +4,8 @@ and modifying features and generally interacting with blackfly model s cameras o
 using the Spinnaker SDK API. File is intended to be used as a dependency for programs a 
 directory higher.
 
-NOTE: functions setADCBitDepth, setShutterMode, setPixelFormat, setExposureTime, and setAcquisitionMode
+NOTE: functions setADCBitDepth, setShutterMode, setPixelFormat, setExposureTime, and setAcquisitionModesetBool("V3_3Enable", pCam, nodeMap, nodeMapTLDevice, true);
+
 are unecessary and were written before the generic functions set, and setBool were written. Any variable,
 including those modified by these unecessary functions, can be accessed and mofied using set and setBool.
         
@@ -69,6 +70,31 @@ int setBool(gcstring attribute, CameraPtr pCam, INodeMap& nodeMap, INodeMap& nod
     }   
 }
 
+vector<int> get_exposure_times(string shutterMode) {
+    if (shutterMode == "RollingShutter") {
+	vector<int> exposureTimeList = {25, 50, 100, 200, 400, 600, 800};
+	for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
+	    exposureTimeList.push_back(t_exp);
+	}
+	for (int t_exp = 10500; t_exp <= 200000; t_exp += 5000) {
+	    exposureTimeList.push_back(t_exp);
+	}
+	return exposureTimeList;
+    } else if (shutterMode == "GlobalReset") {
+    	vector<int> exposureTimeList = {700, 800};
+	for (int t_exp = 1000; t_exp < 5000; t_exp += 500) {
+	    exposureTimeList.push_back(t_exp);
+	}
+	for (int t_exp = 18000; t_exp <= 200000; t_exp += 5000) {
+	    exposureTimeList.push_back(t_exp);
+	}
+	return exposureTimeList;	
+    } else {
+	cout << "Input invalid" << endl;
+	vector<int> empty;
+	return empty;
+    }
+}
 
 /* Prints out info about a camera. Takes as input nodeMap for the camera */
 int PrintDeviceInfo(INodeMap& nodeMap) {
