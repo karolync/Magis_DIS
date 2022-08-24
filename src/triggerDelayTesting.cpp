@@ -29,7 +29,7 @@ using namespace std;
 
 std::ofstream myfile;
 
-#define FILE_NAME "anyPixel.csv"
+#define FILE_NAME "exposureActive.csv"
 #define CAM_NUM 4  // somehow pin 4 digitially maps to pin 23 on the pi
 
 #ifdef _DEBUG
@@ -130,11 +130,11 @@ function getImages, change exposure time via function setExposureTime, change ad
 int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     wiringPiSetup();
     pinMode(CAM_NUM, INPUT);
-    myfile.open(FILE_NAME);
-    myfile << "GPIO Output,Trigger, Exposure Time, clock ticks per second=";
-    myfile << CLOCKS_PER_SEC;
-    myfile << "\n";
-    myfile.close();
+    //myfile.open(FILE_NAME);
+    //myfile << "GPIO Output,Trigger, Exposure Time, clock ticks per second=";
+    //myfile << CLOCKS_PER_SEC;
+    //myfile << "\n";
+    //myfile.close();
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     PrintDeviceInfo(nodeMapTLDevice);
 
@@ -150,7 +150,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
 #endif
 
     //vector<int> exposureTimeList = get_exposure_times("RollingShutter");
-    vector<int> exposureTimeList = {25, 800, 10000}; 
+    vector<int> exposureTimeList = {100000}; 
     for (int t_exp : exposureTimeList) {
 	pCam->Init();
    	INodeMap& nodeMap = pCam->GetNodeMap();
@@ -158,7 +158,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
   	setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 16);
    	set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
    	set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
-  	set("LineSource", pCam, nodeMap, nodeMapTLDevice, "AnyPixel");
+  	set("LineSource", pCam, nodeMap, nodeMapTLDevice, "exposureActive");
 	setShutterMode(pCam, nodeMap, nodeMapTLDevice, 0);
 	setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
 	for(int i = 0; i < 10; i++) {
