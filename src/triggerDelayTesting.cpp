@@ -29,7 +29,7 @@ using namespace std;
 
 std::ofstream myfile;
 
-#define FILE_NAME "exposureActive.csv"
+#define FILE_NAME "globalReset.csv"
 #define CAM_NUM 4  // somehow pin 4 digitially maps to pin 23 on the pi
 
 #ifdef _DEBUG
@@ -150,7 +150,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
 #endif
 
     //vector<int> exposureTimeList = get_exposure_times("RollingShutter");
-    vector<int> exposureTimeList = {100000}; 
+    vector<int> exposureTimeList = {400, 400, 400}; 
     for (int t_exp : exposureTimeList) {
 	pCam->Init();
    	INodeMap& nodeMap = pCam->GetNodeMap();
@@ -159,7 +159,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
    	set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
    	set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
   	set("LineSource", pCam, nodeMap, nodeMapTLDevice, "exposureActive");
-	setShutterMode(pCam, nodeMap, nodeMapTLDevice, 0);
+	setShutterMode(pCam, nodeMap, nodeMapTLDevice, 1);
 	setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
 	for(int i = 0; i < 10; i++) {
 	   pCam->BeginAcquisition();
