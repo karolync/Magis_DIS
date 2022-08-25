@@ -90,11 +90,21 @@ return 0;
 }
 #endif
 
-clock_t listenForGPIO() {
+clock_t GPIO_high;
+clock_t GPIO_low;
+void listenForGPIO() {
     while(digitalRead(CAM_NUM) == 0) {
+	cout << digitalRead(CAM_NUM);
 	continue;
     }
-    return clock();
+    cout << "saving high" << endl;
+    GPIO_high = clock();
+    while(digitalRead(CAM_NUM) == 1) {
+	cout << digitalRead(CAM_NUM);
+	continue;
+    }
+    cout << "Saving low" << endl;
+    GPIO_low = clock();
 }
 
 /* Called by run camera function. Takes as input camera, camera nodeMap, and cameras
@@ -102,13 +112,15 @@ nodeMapTLDevice. Acquires a single image and saves this image in the specified d
 with the name Acquisition-(Date & time).jpg. Works under assumption that camera is in
 Acquisition mode. */
 int getImage(CameraPtr pCam, INodeMap& nodeMap, INodeMap& nodeMapTLDevice, int t_exp) {
-    std::future<clock_t> f = std::async(std::launch::async, listenForGPIO);
+    std::async(std::launch::async, listenForGPIO);
     ImagePtr pResultImage;
     clock_t trigger = clock();
+    cout << "about to run" << endl;
     pResultImage = pCam->GetNextImage();
-    clock_t exposure = f.get();
     myfile.open(FILE_NAME, std::ios::app);
-    myfile << exposure;
+    myfile << GPIO_high;
+    myfile << ",";
+    myfile << GPIO_low;
     myfile << ",";
     myfile << trigger;
     myfile << ",";
@@ -130,11 +142,11 @@ function getImages, change exposure time via function setExposureTime, change ad
 int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
     wiringPiSetup();
     pinMode(CAM_NUM, INPUT);
-    //myfile.open(FILE_NAME);
-    //myfile << "GPIO Output,Trigger, Exposure Time, clock ticks per second=";
-    //myfile << CLOCKS_PER_SEC;
-    //myfile << "\n";
-    //myfile.close();
+    myfile.open(FILE_NAME);
+    myfile << "GPIO Output Begin,GPIO Output End,Trigger,Exposure Time,clock ticks per second=";
+    myfile << CLOCKS_PER_SEC;
+    myfile << "\n";
+    myfile.close();
     INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
     PrintDeviceInfo(nodeMapTLDevice);
 
@@ -150,7 +162,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
 #endif
 
     //vector<int> exposureTimeList = get_exposure_times("RollingShutter");
-    vector<int> exposureTimeList = {400, 400, 400}; 
+    vector<int> exposureTimeList = {1000, 1000, 1000}; 
     for (int t_exp : exposureTimeList) {
 	pCam->Init();
    	INodeMap& nodeMap = pCam->GetNodeMap();
@@ -158,7 +170,7 @@ int runSingleCamera(CameraPtr pCam, SystemPtr system, CameraList camList) {
   	setPixelFormat(pCam, nodeMap, nodeMapTLDevice, 16);
    	set("LineSelector", pCam, nodeMap, nodeMapTLDevice, "Line2");
    	set("LineMode", pCam, nodeMap, nodeMapTLDevice, "Output");
-  	set("LineSource", pCam, nodeMap, nodeMapTLDevice, "exposureActive");
+  	set("LineSource", pCam, nodeMap, nodeMapTLDevice, "AnyPixel");
 	setShutterMode(pCam, nodeMap, nodeMapTLDevice, 1);
 	setExposureTime(pCam, nodeMap, nodeMapTLDevice, t_exp);
 	for(int i = 0; i < 10; i++) {

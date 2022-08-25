@@ -1,5 +1,5 @@
 ################################################################################
-# Makefile for triggerDelayTesting.cpp
+# Makefile for acquisitionFunc.cpp
 ################################################################################
 PROJECT_ROOT=./
 
@@ -18,7 +18,7 @@ OS = mac
 endif
 endif
 
-OUTPUTNAME = triggerDelayTesting
+OUTPUTNAME = acquisitionFunc
 OUTDIR = ./bin${D}
 
 ################################################################################
@@ -27,16 +27,15 @@ OUTDIR = ./bin${D}
 # Spinnaker library dependencies
 SPINNAKER_LIB = -L/usr/spinnaker/lib -lSpinnaker
 LGPIO_LIB = -lwiringPi
-PTHREAD_LIB = -lpthread
 
 ################################################################################
 # Master inc/lib/obj/dep settings
 ################################################################################
-_OBJ = triggerDelayTesting.o
+_OBJ = acquisitionFunc.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 INC = -I./include
 INC += -I/usr/include/spinnaker
-LIB += -Wl,-Bdynamic ${SPINNAKER_LIB} ${LGPIO_LIB} ${PTHREAD_LIB}
+LIB += -Wl,-Bdynamic ${SPINNAKER_LIB} ${LGPIO_LIB}
  
 ################################################################################
 # Rules/recipes
