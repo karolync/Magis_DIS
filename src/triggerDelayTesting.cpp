@@ -1,11 +1,12 @@
-/* DO NOT USE FILE. THIS FILE IS STILL IN PRODUCTION
-
-
-File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
-from parts of the spinnaker SDK examples. Program allows user to for testing of trigger
-delay between trigger and beginnig of acquisition for Spinnaker Blackfly Camera S model
-cameras by use of the Spinnaker SDK API to software trigger the cameras and GPIO output
-from the cameras
+/* File written by Jonah Ezekiel (jezekiel@stanford.edu), with many segments copied
+from parts of the spinnaker SDK examples. Program allows for user to test delay between 
+software trigger beginnig of acquisition for Spinnaker Blackfly Camera S model cameras by
+use of the Spinnaker SDK API to software trigger the cameras and GPIO outputfrom the
+cameras. Script works by calling two functions in parrallel - one that triggers the camera
+and one that awaits GPIO output and logs the clock times for each event. By taking the
+difference of these numbers, we can determine how many ticks of the clock occured between
+the event and given that the raspberry pi ticks 1000000 times per second, determine the
+time interval.
 
 See function comments for more details.*/
 
@@ -224,23 +225,3 @@ int main(int /*argc*/, char** /*argv*/) {
     system->ReleaseInstance();
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
