@@ -1,0 +1,1023 @@
+
+#include "Spinnaker.h"
+#include "SpinGenApi/SpinnakerGenApi.h"
+#include <iostream>
+#include <sstream>
+#include <typeinfo>
+#include <ctime>
+#include <vector>
+#include <json.hpp>
+#include <string>
+
+using namespace Spinnaker;
+using namespace Spinnaker::GenApi;
+using namespace Spinnaker::GenICam;
+using namespace std;
+using namespace nlohmann::json_abi_v3_11_2;
+
+int INT_MAX = 2147483647;
+
+int configureAcquisition(INodeMap& nodeMap){
+	int result = 0;
+	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
+	// error if AcquisitionMode is not readable or writable
+	if (!IsReadable(ptrAcquisitionMode) || !IsWritable(ptrAcquisitionMode))
+        {
+            cout << "Unable to set acquisition mode to continuous (enum retrieval). Aborting..." << endl << endl;
+            return -1;
+        }
+	CEnumerationPtr ptrAcquisitionModeContinuous = ptrAcquisitionMode -> GetEntryByName("Continuous");
+	// error if mode is not readable
+	if (!IsReadable(ptrAcquisitionModeContinuous)){
+		cout <<"Unable to get or set acquisition mode to continuous. Aborting..." << endl << endl;
+		return -1;
+	}
+	const int64_t acquisitionModeContinuous = ptrAcquisitionModeContinuous -> GetIntValue();
+	ptrAcquisitionMode -> SetIntValue(acquisitionModeContinuous);
+	cout << "Acquisition mode set to continuous" << endl;
+	return result;
+
+}
+int setExposure(INodeMap& nodeMap, double exposureTimeToSet){
+	int result = 0;
+	cout << endl << endl << "*** CONFIGURING EXPOSURE ***" << endl << endl;
+	try
+	{	
+        // Turn off automatic exposure mode
+        //
+        // *** NOTES ***
+        // Automatic exposure prevents the manual configuration of exposure
+        // time and needs to be turned off. Some models have auto-exposure
+        // turned off by default
+        //
+        // *** LATER ***
+        // Exposure time can be set automatically or manually as needed. This
+        // example turns automatic exposure off to set it manually and back
+        // on in order to return the camera to its default state.
+        //
+        CEnumerationPtr ptrExposureAuto = nodeMap.GetNode("ExposureAuto");
+        if (IsReadable(ptrExposureAuto) &&
+            IsWritable(ptrExposureAuto))
+        {
+            CEnumEntryPtr ptrExposureAutoOff = ptrExposureAuto->GetEntryByName("Off");
+            if (IsReadable(ptrExposureAutoOff))
+            {
+                ptrExposureAuto->SetIntValue(ptrExposureAutoOff->GetValue());
+                cout << "Automatic exposure disabled..." << endl;
+            }
+        }
+        else 
+        {
+            CEnumerationPtr ptrAutoBright = nodeMap.GetNode("autoBrightnessMode");
+            if (!IsReadable(ptrAutoBright) ||
+                !IsWritable(ptrAutoBright))
+            {
+                cout << "Unable to get or set exposure time. Aborting..." << endl << endl;
+                return -1;
+            }
+            cout << "Unable to disable automatic exposure. Expected for some models... " << endl;
+            cout << "Proceeding..." << endl;
+            result = 1;
+        }
+
+        //
+        // Set exposure time manually; exposure time recorded in microseconds
+        //
+        // *** NOTES ***
+        // The node is checked for availability and writability prior to the
+        // setting of the node. Further, it is ensured that the desired exposure
+        // time does not exceed the maximum. Exposure time is counted in
+        // microseconds. This information can be found out either by
+        // retrieving the unit with the GetUnit() method or by checking SpinView.
+        //
+        CFloatPtr ptrExposureTime = nodeMap.GetNode("ExposureTime");
+        if (!IsReadable(ptrExposureTime) ||
+            !IsWritable(ptrExposureTime))
+        {
+            cout << "Unable to get or set exposure time. Aborting..." << endl << endl;
+            return -1;
+        }
+
+        // Ensure desired exposure time does not exceed the maximum
+        const double exposureTimeMax = ptrExposureTime->GetMax();
+
+        if (exposureTimeToSet > exposureTimeMax)
+        {
+            exposureTimeToSet = exposureTimeMax;
+        }
+
+        ptrExposureTime->SetValue(exposureTimeToSet);
+
+        cout << std::fixed << "Exposure time set to " << exposureTimeToSet << " us..." << endl << endl;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        cout << "Error: " << e.what() << endl;
+        result = -1;
+    }
+
+    return result;
+}
+
+int ResetExposure(INodeMap& nodeMap)
+{
+    int result = 0;
+
+    try
+    {
+        //
+        // Turn automatic exposure back on
+        //
+        // *** NOTES ***
+        // Automatic exposure is turned on in order to return the camera to its
+        // default state.
+        //
+        CEnumerationPtr ptrExposureAuto = nodeMap.GetNode("ExposureAuto");
+        if (!IsReadable(ptrExposureAuto) ||
+            !IsWritable(ptrExposureAuto))
+        {
+            cout << "Unable to enable automatic exposure (node retrieval). Non-fatal error..." << endl << endl;
+            return -1;
+        }
+
+        CEnumEntryPtr ptrExposureAutoContinuous = ptrExposureAuto->GetEntryByName("Continuous");
+        if (!IsReadable(ptrExposureAutoContinuous))
+        {
+            cout << "Unable to enable automatic exposure (enum entry retrieval). Non-fatal error..." << endl << endl;
+            return -1;
+        }
+
+        ptrExposureAuto->SetIntValue(ptrExposureAutoContinuous->GetValue());
+
+        cout << "Automatic exposure enabled..." << endl << endl;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        cout << "Error: " << e.what() << endl;
+        result = -1;
+    }
+
+    
+
+
+    return result;
+}
+int setGain(INodeMap& nodeMap, double gainToSet){
+	// Turn off automatic gain
+        // gain auto: once or continuous
+	// camera automatically adjusts gain to maximize dynamic range
+	// once: automatic gain adapts device, then manual again
+	// continuous: camera continually adjusts
+	// or off
+        //
+	int result = 0;
+	try{
+       		 CEnumerationPtr ptrGainAuto = nodeMap.GetNode("GainAuto");
+       		 if (IsReadable(ptrGainAuto) &&
+            	IsWritable(ptrGainAuto))
+        	{		
+            		CEnumEntryPtr ptrGainAutoOff = ptrGainAuto->GetEntryByName("Off");
+            		if (IsReadable(ptrGainAutoOff))
+            		{
+                		ptrGainAuto->SetIntValue(ptrGainAutoOff->GetValue());
+                		cout << "Automatic gain disabled..." << endl;
+            		}
+        	}	
+        
+
+        	//
+        	// Set gain manually
+        	//
+        	// *** NOTES ***
+        	// The node is checked for availability and writability prior to the
+        	// setting of the node.
+
+        	CFloatPtr ptrGain= nodeMap.GetNode("Gain");
+        	if (!IsReadable(ptrGain) || !IsWritable(ptrGain))
+        	{
+            	cout << "Unable to get or set exposure time. Aborting..." << endl << endl;
+            	return -1;
+        	}
+        	ptrGain->SetValue(gainToSet);
+
+        	cout << std::fixed << "Gain set to " << gainToSet << " us..." << endl << endl;
+    	}
+    	catch (Spinnaker::Exception& e)
+    	{
+        	cout << "Error: " << e.what() << endl;
+        	return -1;
+    	}
+
+    	return result;
+}
+int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
+	int result = 0;
+	try
+    	{     
+        	// Retrieve the enumeration node from the nodemap
+        	CEnumerationPtr ptrPixelFormat = nodeMap.GetNode("PixelFormat");
+        	if (IsReadable(ptrPixelFormat) && IsWritable(ptrPixelFormat))
+       		{
+            		//Retrieve the desired entry node from the enumeration node
+            		CEnumEntryPtr ptrDesiredPixelFormat = ptrPixelFormat->GetEntryByName(gcstring(pixelFormat.c_str()));
+            		if (IsReadable(ptrDesiredPixelFormat))
+            		{
+                		// Retrieve the integer value from the entry node
+                		int64_t DesiredPixelFormat = ptrDesiredPixelFormat->GetValue();
+
+                		// Set integer as new value for enumeration node
+               			 ptrPixelFormat->SetIntValue(DesiredPixelFormat);
+
+                		cout << "Pixel format set to " << ptrPixelFormat->GetCurrentEntry()->GetSymbolic() << "..." << endl;
+            		}
+            		else
+            		{
+               	 		cout << pixelFormat << " not readable..." << endl;
+            		}
+		}
+        
+        	else
+       		{
+            		cout << "Pixel format not readable or writable..." << endl;
+        	}
+	}
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " <<e.what() << endl;
+		result = -1;
+	}
+	return result;
+
+}
+
+int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
+	int result = 0;
+	try{
+
+		CIntegerPtr ptrOffsetX = nodeMap.GetNode("OffsetX");
+		if (IsReadable(ptrOffsetX) && IsWritable(ptrOffsetX)){
+			if (OffsetXToSet >= ptrOffsetX -> GetMin() && OffsetXToSet <= ptrOffsetX -> GetMax()){
+				ptrOffsetX -> SetValue(OffsetXToSet);
+				cout << "Offset X set to " << OffsetXToSet << "..." << endl;
+			}
+		}
+		else
+		{
+			cout << "Offset X not readable or writable..." << endl;
+		}
+	}
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " <<e.what() << endl;
+		result = -1;
+	}
+	return result;
+}
+
+int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
+	int result = 0;
+	try{
+
+		CIntegerPtr ptrOffsetY = nodeMap.GetNode("OffsetY");
+		if (IsReadable(ptrOffsetY) && IsWritable(ptrOffsetY)){
+			if (OffsetYToSet >= ptrOffsetY -> GetMin() && OffsetYToSet <= ptrOffsetY -> GetMax()){
+				ptrOffsetY -> SetValue(OffsetYToSet);
+				cout << "Offset Y set to " << OffsetYToSet << "..." << endl;
+			}
+		}
+		else
+		{
+			cout << "Offset Y not readable or writable..." << endl;
+		}
+	}
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " <<e.what() << endl;
+		result = -1;
+	}
+	return result;
+}
+
+int setWidth(INodeMap& nodeMap, int64_t widthToSet){
+	int result = 0;
+	try{
+		CIntegerPtr ptrWidth = nodeMap.GetNode("Width");
+		if (IsReadable(ptrWidth) && IsWritable(ptrWidth))
+		{
+			if (widthToSet > ptrWidth->GetMax()){
+				widthToSet = ptrWidth->GetMax();
+				//need some checks whether it is a multiple of the increment? - truncate extra if not
+			}
+
+			ptrWidth->SetValue(widthToSet);
+
+			cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;
+		}
+		else
+		{
+			cout << "Width not readable or writable..." << endl;
+		}
+	}
+
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " <<e.what() << endl;
+		result = -1;
+	}
+	return result;
+
+}
+
+int setHeight(INodeMap& nodeMap, int64_t heightToSet){
+	int result = 0;
+	try{
+		CIntegerPtr ptrHeight = nodeMap.GetNode("Height");
+        	if (IsReadable(ptrHeight) && IsWritable(ptrHeight))
+       		 {
+            		if (heightToSet > ptrHeight->GetMax()){
+				heightToSet = ptrHeight->GetMax();
+				//TODO need some checks whether it is a multiple of the increment? - truncate extra if not
+			}
+
+           		ptrHeight->SetValue(heightToSet);
+			cout << "Height set to " << ptrHeight->GetValue() << "..." << endl;
+
+		 }
+	        
+		else
+		{
+			cout << "Height not readable or writable..." << endl;
+		}
+	}
+
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " << e.what() << endl;
+		result = -1;
+	}
+	return result;
+}
+
+int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
+	int result = 0;
+	try
+	{
+		CEnumerationPtr ptrAdcBitDepth = nodeMap.GetNode("AdcBitDepth");
+		// error if node is not readable or writable
+		if (!IsReadable(ptrAdcBitDepth) || !IsWritable(ptrAdcBitDepth))
+		{
+			cout << "Unable to set ADC Bit Depth (enum retrieval). Aborting..." << endl << endl;
+			return -1;
+		}
+		CEnumerationPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
+		// error if mode is not readable
+		if (!IsReadable(ptrAdcBitDepthDesired)){
+			cout << "Unable to get or set the ADC bit depth to the desired mode. Aborting..." << endl << endl;
+			return -1;
+		}
+		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetIntValue();
+		ptrAdcBitDepth -> SetIntValue(AdcBitDepthDesired);
+		cout << "ADC Bit Depth set to bitDepth" << endl;
+	
+	}
+	catch (Spinnaker::Exception& e) { 
+		cout << "Error: " << e.what() << endl;
+		result = -1;
+	}
+	return result;
+
+}
+int configureLUT(INodeMap&nodeMap, char* LUT){
+	// use LUT Selector (Enumeration) to choose which LUT to control
+	// LUT1 is the only lookup table that allows user access and control
+	// LUT Enable (Boolean) - disable selected LUT before customizing (need to disable before customizing)
+	// LUT Index(Integer) - find index of coefficient
+	// LUT Value(Integer) - gets value and LUT index, set new value
+	// Enable LUT to use new changes
+
+	int result = 0;
+
+	cout << endl << endl << "*** CONFIGURING LOOKUP TABLES ***" << endl << endl;
+
+	try
+	{
+		//
+		// Select lookup table type
+		//
+		// *** NOTES ***
+		// Setting the lookup table selector. It is important to note that this
+		// does not enable lookup tables.
+		//
+		CEnumerationPtr ptrLUTSelector = nodeMap.GetNode("LUTSelector");
+		if (!IsReadable(ptrLUTSelector) ||
+				!IsWritable(ptrLUTSelector))
+		{
+			// Some cameras have an LUT type that must be "User Defined"
+			CEnumerationPtr ptrLUTType = nodeMap.GetNode("lutType");
+			CEnumEntryPtr ptrLUTTypeType = nodeMap.GetNode("UserDefined"); // look for actual name??
+			if (!IsReadable(ptrLUTTypeType) ||
+					!IsWritable(ptrLUTTypeType)) 
+			{
+				cout << "Unable to set Lookup Table (node retrieval). Aborting... " << endl;
+				//PrintRetrieveNodeFailure("node", "LUTSelector");
+				return -1;
+			}
+			ptrLUTType->SetIntValue(static_cast<int64_t>(ptrLUTTypeType->GetValue()));
+		}
+
+		CEnumEntryPtr ptrLUTSelectorLUT = ptrLUTSelector->GetEntryByName(gcstring(LUT));
+		// Try out alternate node name
+		if (!IsReadable(ptrLUTSelectorLUT))
+		{
+			ptrLUTSelectorLUT = ptrLUTSelector->GetEntryByName("UserDefined1");
+			if (!IsReadable(ptrLUTSelectorLUT))
+			{			
+				cout << "Unable to set Lookup Table Type (enum entry retrieval)" << endl;
+				return -1;
+			}
+			cout << "Lookup table selector set to User Defined 1..." << endl;
+		}
+		else
+		{
+			cout << "Lookup table selector set to LUT 1..." << endl;
+		}
+		ptrLUTSelector->SetIntValue(static_cast<int64_t>(ptrLUTSelectorLUT->GetValue()));
+
+		//
+		// Determine pixel increment and set indexes and values as desired
+		//
+		// *** NOTES ***
+		// To get the pixel increment, the maximum range of the value node must
+		// first be retrieved. The value node represents an index, so its value
+		// should be one less than a power of 2 (e.g. 511, 1023, etc.). Add 1 to
+		// this index to get the maximum range. Divide the maximum range by 512
+		// to calculate the pixel increment.
+		//
+		// Finally, all values (in the value node) and their corresponding
+		// indexes (in the index node) need to be set. The goal of this example
+		// is to set the lookup table linearly. As such, the slope of the values
+		// should be set according to the increment, but the slope of the
+		// indexes is inconsequential.
+		//
+		// Retrieve value node
+		CIntegerPtr ptrLUTValue = nodeMap.GetNode("LUTValue");
+		if (!IsReadable(ptrLUTValue) ||
+				!IsWritable(ptrLUTValue))
+		{
+			cout << "Unable to set Lookup Table Value (node retrieval)" << endl; 
+			//PrintRetrieveNodeFailure("node", "LUTValue");
+			return -1;
+		}
+		// Retrieve index node
+		CIntegerPtr ptrLUTIndex = nodeMap.GetNode("LUTIndex");
+		if (!IsWritable(ptrLUTIndex))
+		{	
+			cout << "Unable to set Lookup Table Index (node retrieval). aborting." << endl; 
+
+			//PrintRetrieveNodeFailure("node", "LUTIndex");
+			return -1;
+		}
+
+		// Retrieve maximum value
+		int maxVal = (int)ptrLUTValue->GetMax();
+		cout << "\tMaximum Value: " << maxVal << endl;
+
+		// Retrieve maximum index
+		int maxIndex = (int)ptrLUTIndex->GetMax();
+		cout << "\tMaximum Index: " << maxIndex << endl;
+
+		// Calculate increment
+		int increment = maxVal / maxIndex;
+
+		// Set LUT Values
+		if (increment > 0) 
+		{
+			cout << "\tIncrement: " << increment << endl;
+			for(int i = 0; i < maxIndex; i++)
+			{
+				ptrLUTIndex->SetValue(i);
+				ptrLUTValue->SetValue(i * increment);
+			}
+
+		}
+		else 
+		{
+			int denominator = maxIndex / maxVal;
+			cout << "\tIncrement: 1/" << denominator << endl;
+			for(int i = 0; i < maxIndex; i++)
+			{
+				ptrLUTIndex->SetValue(i);
+				ptrLUTValue->SetValue(i / denominator);
+			}
+		}
+
+		cout << "All lookup table values set..." << endl;
+
+		//
+		// Enable lookup tables
+		//
+		// *** NOTES ***
+		// Once lookup tables have been configured, don't forget to enable them
+		// with the appropriate node.
+		//
+		// *** LATER ***
+		// Once the images with lookup tables have been collected, turn the
+		// feature off with the same node.
+		//
+		CBooleanPtr ptrLUTEnable = nodeMap.GetNode("LUTEnable");
+		if (!IsWritable(ptrLUTEnable))
+		{
+			// Try alternate name
+			CEnumerationPtr ptrLUTMode = nodeMap.GetNode("lutMode");
+			if (!IsWritable(ptrLUTMode)) 
+			{
+				cout << "Unable to set Lookup Table Mode (node retrieval). Aborting." << endl; 
+
+				// PrintRetrieveNodeFailure("node", "LUTEnable");
+				return -1;
+			}
+			CEnumEntryPtr ptrLUTModeActive = ptrLUTMode->GetEntryByName("Active");
+			ptrLUTMode->SetIntValue(ptrLUTModeActive->GetValue());
+		}
+		else
+		{
+			ptrLUTEnable->SetValue(true);
+		}
+
+
+
+		cout << "Lookup tables enabled..." << endl << endl;
+	}
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " << e.what() << endl;
+		result = -1;
+	}
+
+	return result;
+}
+
+
+int setTrigger(INodeMap& nodeMap, string chosenTrigger, string overlap,  double delay){
+	int result = 0;
+	cout << endl << endl << "*** CONFIGURING TRIGGER ***" << endl << endl;
+
+	cout << "Note that if the application / user software triggers faster than frame time, the trigger may be dropped "
+            "/ skipped by the camera."
+         << endl
+         << "If several frames are needed per trigger, a more reliable alternative for such case, is to use the "
+            "multi-frame mode."
+         << endl
+         << endl;
+
+    if (chosenTrigger== "Software")
+    {
+        cout << "Software trigger chosen..." << endl;
+    }
+    else if (chosenTrigger == "Hardware" )
+    {
+        cout << "Hardware trigger chosen..." << endl;
+    }
+
+    try
+    {
+        //
+        // Ensure trigger mode off
+        //
+        // *** NOTES ***
+        // The trigger must be disabled in order to configure whether the source
+        // is software or hardware.
+        //
+        CEnumerationPtr ptrTriggerMode = nodeMap.GetNode("TriggerMode");
+        if (!IsReadable(ptrTriggerMode))
+        {
+            cout << "Unable to disable trigger mode (node retrieval). Aborting..." << endl;
+            return -1;
+        }
+
+        CEnumEntryPtr ptrTriggerModeOff = ptrTriggerMode->GetEntryByName("Off");
+        if (!IsReadable(ptrTriggerModeOff))
+        {
+            cout << "Unable to disable trigger mode (enum entry retrieval). Aborting..." << endl;
+            return -1;
+        }
+
+        ptrTriggerMode->SetIntValue(ptrTriggerModeOff->GetValue());
+
+        cout << "Trigger mode disabled..." << endl;
+
+        //
+        // Set TriggerSelector to FrameStart
+        //
+        // *** NOTES ***
+        // For this example, the trigger selector should be set to frame start.
+        // This is the default for most cameras.
+        //
+        CEnumerationPtr ptrTriggerSelector = nodeMap.GetNode("TriggerSelector");
+        if (!IsReadable(ptrTriggerSelector) ||
+            !IsWritable(ptrTriggerSelector))
+        {
+            cout << "Unable to get or set trigger selector (node retrieval). Aborting..." << endl;
+            return -1;
+        }
+
+        CEnumEntryPtr ptrTriggerSelectorFrameStart = ptrTriggerSelector->GetEntryByName("FrameStart");
+        if (!IsReadable(ptrTriggerSelectorFrameStart))
+        {
+            cout << "Unable to get trigger selector (enum entry retrieval). Aborting..." << endl;
+            return -1;
+        }
+
+        ptrTriggerSelector->SetIntValue(ptrTriggerSelectorFrameStart->GetValue());
+
+        cout << "Trigger selector set to frame start..." << endl;
+        //
+        // Select trigger source
+        //
+        // *** NOTES ***
+        // The trigger source must be set to hardware or software while trigger
+        // mode is off.
+        //
+        CEnumerationPtr ptrTriggerSource = nodeMap.GetNode("TriggerSource");
+        if (!IsReadable(ptrTriggerSource) ||
+            !IsWritable(ptrTriggerSource))
+        {
+            cout << "Unable to get or set trigger mode (node retrieval). Aborting..." << endl;
+            return -1;
+        }
+
+        if (chosenTrigger == "Software" )
+        {
+            // Set trigger mode to software
+            CEnumEntryPtr ptrTriggerSourceSoftware = ptrTriggerSource->GetEntryByName("Software");
+            if (!IsReadable(ptrTriggerSourceSoftware))
+            {
+                cout << "Unable to set trigger mode (enum entry retrieval). Aborting..." << endl;
+                return -1;
+            }
+
+            ptrTriggerSource->SetIntValue(ptrTriggerSourceSoftware->GetValue());
+
+            cout << "Trigger source set to software..." << endl;
+        }
+        else if (chosenTrigger == "Hardware")
+        {
+            // Set trigger mode to hardware ('Line0')
+            CEnumEntryPtr ptrTriggerSourceHardware = ptrTriggerSource->GetEntryByName("Line0");
+            if (!IsReadable(ptrTriggerSourceHardware))
+            {
+                cout << "Unable to set trigger mode (enum entry retrieval). Aborting..." << endl;
+                return -1;
+            }
+
+            ptrTriggerSource->SetIntValue(ptrTriggerSourceHardware->GetValue());
+
+            cout << "Trigger source set to hardware..." << endl;
+        }
+	if (overlap == ""){
+	 	CEnumerationPtr ptrTriggerOverlap = nodeMap.GetNode("TriggerOverlap");
+        	if (!IsReadable(ptrTriggerOverlap) ||
+            	!IsWritable(ptrTriggerOverlap))
+        	{
+            		cout << "Unable to get or set trigger overlap. Aborting..." << endl;
+           		 return -1;
+        	}
+
+        	CEnumEntryPtr ptrTriggerDesiredOverlap = ptrTriggerOverlap->GetEntryByName(gcstring(overlap.c_str()));
+        	if (!IsReadable(ptrTriggerDesiredOverlap))
+        	{
+            		cout << "Unable to get" <<overlap<< ". Aborting..." << endl;
+            	return -1;
+        	}
+
+        	ptrTriggerOverlap->SetIntValue(ptrTriggerDesiredOverlap->GetValue());
+
+        	cout << "Trigger overlap  set to " <<  overlap  << endl;
+	}
+	CEnumerationPtr ptrTriggerActivation = nodeMap.GetNode("TriggerActivation");
+	if (!IsAvailable(ptrTriggerActivation) || !IsWritable(ptrTriggerActivation)){
+		cout << "Unable to set trigger activation (node retrieval). Aborting..." << endl;
+		return -1;
+	}
+	ptrTriggerActivation -> SetIntValue(ptrTriggerActivation->GetEntryByName("RisingEdge") -> GetValue());
+	cout << "Trigger activation mode set to rising edge..." << endl;
+	// set trigger delay in microseconds
+	if (delay >=0){
+		CFloatPtr ptrTriggerDelay = nodeMap.GetNode("TriggerDelay");
+		if (!IsReadable(ptrTriggerDelay) || !IsWritable(ptrTriggerDelay)){
+			cout << "Unable to access Trigger Delay mode. Aborting...";
+			return -1;
+		}
+		ptrTriggerDelay -> SetValue(delay);
+		cout << "Trigger delay set to " << delay << endl;
+	}
+        //
+        // Turn trigger mode on
+        //
+        // *** LATER ***
+        // Once the appropriate trigger source has been set, turn trigger mode
+        // on in order to retrieve images using the trigger.
+        //
+
+        CEnumEntryPtr ptrTriggerModeOn = ptrTriggerMode->GetEntryByName("On");
+        if (!IsReadable(ptrTriggerModeOn))
+        {
+            cout << "Unable to enable trigger mode (enum entry retrieval). Aborting..." << endl;
+            return -1;
+        }
+
+        ptrTriggerMode->SetIntValue(ptrTriggerModeOn->GetValue());
+
+        // NOTE: Blackfly and Flea3 GEV cameras need 1 second delay after trigger mode is turned on
+
+        cout << "Trigger mode turned back on..." << endl << endl;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        cout << "Error: " << e.what() << endl;
+        result = -1;
+    }
+
+    return result;		
+}
+// activate all chunks
+/*chunks:
+	Image - can't be disabled
+	CRC (cyclic redundancy check) - can't be disabled
+	FrameID
+	OffsetX
+	OffsetY
+	Width
+	Height
+	Exposure Time
+	Gain
+	Black Level
+	Pixel Format
+	ImageTimestamp
+	Sequencer Set Active
+	*/
+
+int enableChunkData(INodeMap& nodeMap){
+	int result = 0;
+	cout << endl << endl << "*** CONFIGURING CHUNK DATA ***" << endl << endl;
+	try
+	{
+		// activate chunk mode
+		CBooleanPtr ptrChunkModeActive = nodeMap.GetNode("ChunkModeActive");
+		if (!IsWritable(ptrChunkModeActive))
+		{
+			cout << "Unable to activate chunk mode. Aborting.." << endl << endl;
+			return -1;
+		}
+		ptrChunkModeActive -> SetValue(true);
+		cout << "Chunk mode activated..." << endl;
+		// iterate through and enable chunk data
+		NodeList_t entries;
+		CEnumerationPtr ptrChunkSelector = nodeMap.GetNode("ChunkSelector");
+		if (!IsReadable(ptrChunkSelector)){
+			cout << "Unable to retrieve chunk selector. Aborting..." << endl << endl;
+			return -1;
+		}
+		ptrChunkSelector -> GetEntries(entries);
+		cout << "Enabling entries..." << endl;
+		for (size_t i = 0; i < entries.size(); i++){
+			//access the current chunk in list
+			CEnumEntryPtr ptrChunkSelectorEntry = entries.at(i);
+			// Skip to next node if the node is not readable
+			if (!IsReadable(ptrChunkSelectorEntry))
+			{
+				continue;
+			}
+			ptrChunkSelector -> SetIntValue(ptrChunkSelectorEntry -> GetValue());
+			cout << "\t" << ptrChunkSelectorEntry -> GetSymbolic() << ": ";
+			// retrieve chunk enable boolean node
+			CBooleanPtr ptrChunkEnable = nodeMap.GetNode("ChunkEnable");
+			if (!IsAvailable(ptrChunkEnable)){
+				cout << "not available" << endl;
+				result = -1;
+			}
+			else if (ptrChunkEnable -> GetValue())
+			{
+				cout << "enabled" << endl;
+			}
+			else if (IsWritable(ptrChunkEnable))
+			{
+				ptrChunkEnable-> SetValue(true);
+				cout << "enabled" << endl;
+			}
+			else{
+				cout << "not writable" << endl;
+				result = -1;
+			}
+		}
+		
+	}
+	catch (Spinnaker:: Exception& e)
+	{
+		cout << "Error: " << e.what() << endl;
+		result = -1;
+	}
+	return result;
+}
+
+int setShutterMode(INodeMap& nodeMap, string shutterMode){
+	CEnumerationPtr ptrSensorShutterMode = nodeMap.GetNode("SensorShutterMode");
+	if (!IsReadable(ptrSensorShutterMode) || ! IsWritable(ptrSensorShutterMode)){
+		cout <<"Unable to read or write sensor shutter mode" << endl;
+		return -1;
+	}
+	CEnumEntryPtr ptrSensorShutterModeDesired = ptrSensorShutterMode-> GetEntryByName(gcstring(shutterMode.c_str()));
+	if (!IsReadable(ptrSensorShutterModeDesired) || !IsWritable(ptrSensorShutterModeDesired)){
+		cout << "Unable to retrieve " << shutterMode << " shutter mode" << endl;
+		return -1;
+	}
+	ptrSensorShutterMode -> SetIntValue(ptrSensorShutterModeDesired->GetValue());
+	cout << "Sensor shutter mode set to " << shutterMode << endl;
+	return 0;
+}
+
+
+int prepareCameras(CameraList camLisst){
+	int result = 0;
+	json configurations = json::parse("DIS_TDAQ/configs/example_camera_params.json");
+	if (!configurations.is_null()){	
+		CameraPtr pCam = nullptr;
+		json cameras = configurations["Cameras"];
+			try {
+				for (unsigned int i = 0; i < camList.GetSize(); i++)
+				{
+				
+				pCam = camList.GetByIndex(i);
+				INodeMap& nodeMap = pCam -> GetNodeMap();
+				INodeMap& nodeMapTLDevice = pCam -> GetTLDeviceNodeMap();
+				gcstring deviceSerialNumber("");
+				CStringPtr ptrStringSerial = nodeMapTLDevice.GetNode("DeviceSerialNumber");
+				if (IsReadable(ptrStringSerial)){
+					deviceSerialNumber = ptrStringSerial -> GetValue();
+					}
+				else{
+					cout << "device serial number not readable" << endl;
+					return -1;
+				}
+				json currentCam;
+				for (json::iterator it = cameras.begin(); it != cameras.end(); i++){
+					if (it.value()["DeviceSerialNumber"] == deviceSerialNumber){
+						currentCam = it.value();
+				
+	}
+				}
+				if (currentCam.is_null()){
+					cout << "No file found for device with serial number" << deviceSerialNumber;
+					return -1;
+				}
+				json inUse = currentCam["InUse"];
+				if (!inUse.is_boolean()){
+					cout <<"InUse parameter is not a boolean, trying next camera..." << endl;
+					continue;
+				}
+				if (!inUse){
+					cout << "Camera not in use: trying next camera.." << endl;
+				}	
+				configureAcquisition(nodeMap);
+				// set attributes
+				// check if exposure will be triggered or a set time/ automatic
+				// if timed:
+				double exposureTime;
+				if (!currentCam["Exposure"].is_null()){
+					exposureTime = currentCam["Exposure"];
+					setExposure(nodeMap, exposureTime);
+				} 
+				double gain;
+				if ( !currentCam["Gain"].is_null()){
+					gain = currentCam["Gain"];
+					setGain(nodeMap, gain);
+				}
+				string pixelFormat;
+				if (!currentCam["PixelFormat"].is_null()){
+					pixelFormat = currentCam["PixelFormat"];		
+					setPixelFormat(nodeMap, pixelFormat);
+				}
+				int64_t OffsetXToSet;
+				if (!currentCam["OffsetX"].is_null()){
+					OffsetXToSet = currentCam["OffsetX"];
+					setOffsetX(nodeMap, OffsetXToSet);
+				}
+				int64_t OffsetYToSet;
+				if (!currentCam["OffsetY"].is_null()){
+					OffsetYToSet = currentCam["OffsetY"];
+					setOffsetY(nodeMap, OffsetYToSet);
+				}
+				int64_t width= currentCam["Width"];
+				if (!currentCam["Width"].is_null()){
+					width= currentCam["Width"];
+					setWidth(nodeMap, width);
+				}
+				int64_t height= currentCam["Height"];
+				if (!currentCam["Height"].is_null()){
+					height = currentCam["Height"];
+					setHeight(nodeMap, height);
+				}
+				string bitDepth;
+				if (!currentCam["AdcBitDepth"].is_null()){
+					bitDepth = currentCam["AdcBitDepth"];
+					setADCBitDepth(nodeMap, bitDepth);
+				}
+				if (!currentCam["SensorShutterMode"].is_null()){
+					string shutterMode = currentCam["SensorShutterMode"];
+					setShutterMode(nodeMap, shutterMode);
+				}
+				string chosenTrigger;
+				if (!currentCam["TriggerSource"].is_null()){
+					chosenTrigger = currentCam["TriggerSource"];
+				}
+				string overlap;
+				if (!currentCam["TriggerOverlap"].is_null()){
+					overlap = currentCam["TriggerOverlap"];
+				}
+				double delay =-1;
+			       if(!currentCam["TriggerDelay"].is_null()){
+				       delay = currentCam["TriggerDelay"];
+				}
+
+				setTrigger(nodeMap, chosenTrigger, overlap, delay);
+				enableChunkData(nodeMap);
+                    pcam -> deInit();
+			}
+		}
+		catch (Spinnaker::Exception& e)
+		{
+        		cout << "Error: " << e.what() << endl;
+        		return -1;
+		}
+	}
+	else{
+		cout << "File could not be parsed" << endl;
+	}
+		
+	return result;
+}
+
+
+
+int main(int /*argc*/, char** /*argv*/)
+{
+    // Since this application saves images in the current folder
+    // we must ensure that we have permission to write to this folder.
+    // If we do not have permission, fail right away.
+    FILE* tempFile = fopen("test.txt", "w+");
+    if (tempFile == nullptr)
+    {
+        cout << "Failed to create file in current folder.  Please check "
+            "permissions."
+            << endl;
+        cout << "Press Enter to exit..." << endl;
+        getchar();
+        return -1;
+    }
+    fclose(tempFile);
+    remove("test.txt");
+
+    // Print application build information
+    cout << "Application build date: " << __DATE__ << " " << __TIME__ << endl << endl;
+
+    // Retrieve singleton reference to system object
+    SystemPtr system = System::GetInstance();
+
+    // Print out current library version
+    const LibraryVersion spinnakerLibraryVersion = system->GetLibraryVersion();
+    cout << "Spinnaker library version: " << spinnakerLibraryVersion.major << "." << spinnakerLibraryVersion.minor
+        << "." << spinnakerLibraryVersion.type << "." << spinnakerLibraryVersion.build << endl
+        << endl;
+	int result = 0;
+    // Retrieve list of cameras from the system
+    CameraList camList = system->GetCameras();
+
+    const unsigned int numCameras = camList.GetSize();
+
+    cout << "Number of cameras detected: " << numCameras << endl << endl;
+
+    // Finish if there are no cameras
+    if (numCameras == 0)
+    {
+        // Clear camera list before releasing system
+        camList.Clear();
+
+        // Release system
+        system->ReleaseInstance();
+
+        cout << "Not enough cameras!" << endl;
+        cout << "Done! Press Enter to exit..." << endl;
+        getchar();
+
+        return -1;
+    }
+	else{
+		int result = 0;
+		prepareCameras(camList);
+	}
+	//acquireImage....
+	camList.Clear();
+	system -> ReleaseInstance();	
+	return result;	
+
+}
