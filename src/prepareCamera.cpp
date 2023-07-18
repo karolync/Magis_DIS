@@ -20,6 +20,7 @@ using namespace nlohmann::json_abi_v3_11_2;
 int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	int result = 0;
 	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
+	cout << "Before: " << ptrAcquisitionMode-> GetDisplayName() << ": " << ptrAcquisitionMode -> GetCurrentEntry() -> GetSymbolic() << endl; 
 	// error if AcquisitionMode is not readable or writable
 	if (!IsReadable(ptrAcquisitionMode) || !IsWritable(ptrAcquisitionMode))
         {
@@ -35,8 +36,8 @@ int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	const int64_t acquisitionModeDesired = ptrAcquisitionModeDesired -> GetValue();
 	ptrAcquisitionMode -> SetIntValue(acquisitionModeDesired);
 	cout << "Acquisition mode set to " << acquisitionMode  << endl;
+	cout << "After: " << ptrAcquisitionMode -> GetDisplayName() << ": " << ptrAcquisitionMode -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
 	return result;
-
 }
 int setExposure(INodeMap& nodeMap, double exposureTimeToSet){
 	int result = 0;
@@ -97,6 +98,7 @@ int setExposure(INodeMap& nodeMap, double exposureTimeToSet){
             cout << "Unable to get or set exposure time. Aborting..." << endl << endl;
             return -1;
         }
+	cout << "Before: " <<  ptrExposureTime-> GetDisplayName() << ": " << ptrExposureTime -> GetValue() << endl; 
 
         // Ensure desired exposure time does not exceed the maximum
         const double exposureTimeMax = ptrExposureTime->GetMax();
@@ -109,6 +111,7 @@ int setExposure(INodeMap& nodeMap, double exposureTimeToSet){
         ptrExposureTime->SetValue(exposureTimeToSet);
 
         cout << std::fixed << "Exposure time set to " << exposureTimeToSet << " us..." << endl << endl;
+	cout << "After: " << ptrExposureTime -> GetDisplayName() << ": " << ptrExposureTime -> GetValue() << endl << endl;
     }
     catch (Spinnaker::Exception& e)
     {
@@ -198,9 +201,11 @@ int setGain(INodeMap& nodeMap, double gainToSet){
             	cout << "Unable to get or set exposure time. Aborting..." << endl << endl;
             	return -1;
         	}
+		cout << "Before: " <<  ptrGain -> GetDisplayName() << ": " << ptrGain -> GetValue() << endl;
         	ptrGain->SetValue(gainToSet);
 
         	cout << std::fixed << "Gain set to " << gainToSet << " us"  << endl << endl;
+		cout << "After: " << ptrGain -> GetDisplayName() << ": " << ptrGain -> GetValue() << endl << endl;
     	}
     	catch (Spinnaker::Exception& e)
     	{
@@ -216,31 +221,35 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
     	{     
         	// Retrieve the enumeration node from the nodemap
         	CEnumerationPtr ptrPixelFormat = nodeMap.GetNode("PixelFormat");
-        	if (IsReadable(ptrPixelFormat) && IsWritable(ptrPixelFormat))
-       		{
-            		//Retrieve the desired entry node from the enumeration node
-            		CEnumEntryPtr ptrDesiredPixelFormat = ptrPixelFormat->GetEntryByName(gcstring(pixelFormat.c_str()));
-            		if (IsReadable(ptrDesiredPixelFormat))
-            		{
-                		// Retrieve the integer value from the entry node
-                		int64_t DesiredPixelFormat = ptrDesiredPixelFormat->GetValue();
-
-                		// Set integer as new value for enumeration node
-               			 ptrPixelFormat->SetIntValue(DesiredPixelFormat);
-
-                		cout << "Pixel format set to " << ptrPixelFormat->GetCurrentEntry()->GetSymbolic()  << endl;
-            		}
-            		else
-            		{
-               	 		cout << pixelFormat << " not readable..." << endl;
-            		}
+		if (!IsReadable(ptrPixelFormat) || ! IsWritable(ptrPixelFormat))
+		{
+			cout << "Unable to get or set pixel format (Enumeration node retrieval). Aborting... ";
+			return -1;
 		}
-        
-        	else
-       		{
-            		cout << "Pixel format not readable or writable..." << endl;
-        	}
+        	
+		cout << "Before: " << ptrPixelFormat-> GetDisplayName() << ": " << ptrPixelFormat -> GetCurrentEntry() -> GetSymbolic() << endl; 
+
+            	//Retrieve the desired entry node from the enumeration node
+            	CEnumEntryPtr ptrDesiredPixelFormat = ptrPixelFormat->GetEntryByName(gcstring(pixelFormat.c_str()));
+            	if (IsReadable(ptrDesiredPixelFormat))
+            	{
+                	// Retrieve the integer value from the entry node
+                	int64_t DesiredPixelFormat = ptrDesiredPixelFormat->GetValue();
+
+                	// Set integer as new value for enumeration node
+               		ptrPixelFormat->SetIntValue(DesiredPixelFormat);
+
+                	cout << "Pixel format set to " << ptrPixelFormat->GetCurrentEntry()->GetSymbolic()  << endl;
+			cout << "After: " << ptrPixelFormat -> GetDisplayName() << ": " << ptrPixelFormat -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
+            	}
+            	else
+            	{
+               	 		cout << pixelFormat << " not readable..." << endl;
+				return -1;
+            	}
 	}
+        
+        
 	catch (Spinnaker::Exception& e)
 	{
 		cout << "Error: " <<e.what() << endl;
@@ -320,28 +329,73 @@ int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 		cout << "Error: " <<e.what() << endl;
 		result = -1;
 	}
-	return result;
+	return result;// set trigger activation to rising edge by default
 }
 
 int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 	int result = 0;
 	try{
 		CIntegerPtr ptrWidth = nodeMap.GetNode("Width");
-		if (IsReadable(ptrWidth) && IsWritable(ptrWidth))
-		{
-			if (widthToSet > ptrWidth->GetMax()){
-				widthToSet = ptrWidth->GetMax();
-				//need some checks whether it is a multiple of the increment? - truncate extra if not
-			}
-
-			ptrWidth->SetValue(widthToSet);
-
-			cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;
+		if (!IsReadable(ptrWidth) || ! IsWritable(ptrWidth)){
+			cout << "Cannot get or set Width node. Aborting... " << endl;
+			return -1;
 		}
-		else
-		{
-			cout << "Width not readable or writable..." << endl;
+		int incrementRemainder =(widthToSet - ptrWidth-> GetMin() ) % ptrWidth -> GetInc();
+		if (widthToSet > ptrWidth->GetMax()){
+			widthToSet = ptrWidth->GetMax();
+			cout << "Desired width is larger than the maximum, and has been set to " << ptrWidth -> GetMax() << "." << endl;
+		}		
+		else if (widthToSet < ptrWidth -> GetMin()){
+			widthToSet = ptrWidth -> GetMin();
+			cout << "Desired width is larger than the maximum, and has been set to " << ptrWidth -> GetMin() << "." << endl;
 		}
+		
+		else if (incrementRemainder != 0){
+			widthToSet -= incrementRemainder;
+			cout << "Desired width is not a multiple of the increment, and has been set to " << widthToSet << "." << endl;
+		}
+
+		ptrWidth->SetValue(widthToSet);
+
+		cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;
+	
+	}
+
+	catch (Spinnaker::Exception& e)
+	{
+		cout << "Error: " <<e.what() << endl;
+		result = -1;
+	}
+	return result;
+
+}
+int setHeight(INodeMap& nodeMap, int64_t heightToSet){
+	int result = 0;
+	try{
+		CIntegerPtr ptrHeight = nodeMap.GetNode("Height");
+		if (!IsReadable(ptrHeight) || ! IsWritable(ptrHeight)){
+			cout << "Cannot get or set Width node. Aborting... " << endl;
+			return -1;
+		}
+		int incrementRemainder =(heightToSet - ptrHeight-> GetMin() ) % ptrHeight -> GetInc();
+		if (heightToSet > ptrHeight -> GetMax()){
+			heightToSet = ptrHeight -> GetMax();
+			cout << "Desired height is larger than the maximum, and has been set to " << ptrHeight -> GetMax() << "." << endl;
+		}		
+		else if (heightToSet < ptrHeight -> GetMin()){
+			heightToSet = ptrHeight -> GetMin();
+			cout << "Desired height  is larger than the maximum, and has been set to " << ptrHeight -> GetMin() << "." << endl;
+		}
+		
+		else if (incrementRemainder != 0){
+			heightToSet -= incrementRemainder;
+			cout << "Desired height  is not a multiple of the increment, and has been set to " << heightToSet << "." << endl;
+		}
+
+		ptrHeight -> SetValue(heightToSet);
+
+		cout << "Height set to " << ptrHeight -> GetValue() << "..." << endl;
+	
 	}
 
 	catch (Spinnaker::Exception& e)
@@ -353,35 +407,6 @@ int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 
 }
 
-int setHeight(INodeMap& nodeMap, int64_t heightToSet){
-	int result = 0;
-	try{
-		CIntegerPtr ptrHeight = nodeMap.GetNode("Height");
-        	if (IsReadable(ptrHeight) && IsWritable(ptrHeight))
-       		 {
-            		if (heightToSet > ptrHeight->GetMax()){
-				heightToSet = ptrHeight->GetMax();
-				//TODO need some checks whether it is a multiple of the increment? - truncate extra if not
-			}
-
-           		ptrHeight->SetValue(heightToSet);
-			cout << "Height set to " << ptrHeight->GetValue() << "..." << endl;
-
-		 }
-	        
-		else
-		{
-			cout << "Height not readable or writable..." << endl;
-		}
-	}
-
-	catch (Spinnaker::Exception& e)
-	{
-		cout << "Error: " << e.what() << endl;
-		result = -1;
-	}
-	return result;
-}
 
 int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 	int result = 0;
@@ -394,6 +419,8 @@ int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 			cout << "Unable to set ADC Bit Depth (enum retrieval). Aborting..." << endl << endl;
 			return -1;
 		}
+		cout << "Before: " << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl; 
+
 		CEnumerationPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
 		// error if mode is not readable
 		if (!IsReadable(ptrAdcBitDepthDesired)){
@@ -402,7 +429,8 @@ int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 		}
 		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetIntValue();
 		ptrAdcBitDepth -> SetIntValue(AdcBitDepthDesired);
-		cout << "ADC Bit Depth set to bitDepth" << endl;
+		cout << "ADC Bit Depth set to" <<  bitDepth  << endl;
+		cout << "After :" << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl;
 	
 	}
 	catch (Spinnaker::Exception& e) { 
@@ -585,15 +613,6 @@ int configureLUT(INodeMap&nodeMap, char* LUT){
 
 int setTrigger(INodeMap& nodeMap, string source, string triggerType, string activation, string overlap, double delay){
 	int result = 0;
-	cout << endl << endl << "*** CONFIGURING TRIGGER ***" << endl << endl;
-
-	cout << "Note that if the application / user software triggers faster than frame time, the trigger may be dropped "
-            "/ skipped by the camera."
-         << endl
-         << "If several frames are needed per trigger, a more reliable alternative for such case, is to use the "
-            "multi-frame mode."
-         << endl
-         << endl;
 
     try
     {
@@ -626,7 +645,7 @@ int setTrigger(INodeMap& nodeMap, string source, string triggerType, string acti
         //
         // *** NOTES ***
         // The trigger source must be set to hardware or software while trigger
-        // mode is off.
+        // mode is off.// set trigger activation to rising edge by default
         //
         CEnumerationPtr ptrTriggerSource = nodeMap.GetNode("TriggerSource");
         if (!IsReadable(ptrTriggerSource) ||
@@ -670,25 +689,28 @@ int setTrigger(INodeMap& nodeMap, string source, string triggerType, string acti
 	//Options:
 	//AcquisitionStart - trigger stats acquisition in the selected activation mode
 	//FrameStart - a trigger is required for each individual that is required
-	//FrameBurstStart - trigger acquires a specified number of images, usually used in continuous mode 
-         CEnumerationPtr ptrTriggerSelector = nodeMap.GetNode("TriggerSelector");
-        if (!IsReadable(ptrTriggerSelector) ||
-            !IsWritable(ptrTriggerSelector))
-        {
-            cout << "Unable to get or set trigger selector (node retrieval). Aborting..." << endl;
-            return -1;
-        }
+	//FrameBurstStart - trigger acquires a specified number of images, usually used in continuous mode
+	if (triggerType != ""){
 
-        CEnumEntryPtr ptrTriggerSelectorDesired = ptrTriggerSelector->GetEntryByName(gcstring(triggerType.c_str()));
-        if (!IsReadable(ptrTriggerSelectorDesired))
-        {
-            cout << "Unable to get trigger selector (enum entry retrieval). Aborting..." << endl;
-            return -1;
-        }
+        	 CEnumerationPtr ptrTriggerSelector = nodeMap.GetNode("TriggerSelector");
+       		 if (!IsReadable(ptrTriggerSelector) ||
+            	!IsWritable(ptrTriggerSelector))
+        	{
+            	cout << "Unable to get or set trigger selector (node retrieval). Aborting..." << endl;
+            	return -1;
+        	}
 
-        ptrTriggerSelector->SetIntValue(ptrTriggerSelectorDesired->GetValue());
+        	CEnumEntryPtr ptrTriggerSelectorDesired = ptrTriggerSelector->GetEntryByName(gcstring(triggerType.c_str()));
+        	if (!IsReadable(ptrTriggerSelectorDesired))
+        	{
+            	cout << "Unable to get trigger selector (enum entry retrieval). Aborting..." << endl;
+            	return -1;
+        	}
 
-        cout << "Trigger selector set to " << triggerType  << endl;
+        	ptrTriggerSelector->SetIntValue(ptrTriggerSelectorDesired->GetValue());
+
+        	cout << "Trigger selector set to " << triggerType  << endl;
+	}
 	// set trigger overlap: whether a trigger responds while the readout of a previously acquired image is still occuring
 	// Off: trigger is ignored during readout
 	// ReadOut: trigger can acquire another image during readout
@@ -713,10 +735,19 @@ int setTrigger(INodeMap& nodeMap, string source, string triggerType, string acti
         	cout << "Trigger overlap  set to " <<  overlap  << endl;
 	}
 	// set trigger delay in microseconds
+	// test cameras had a minimum delay of 177 and maximum of 65520
 	if (delay >=0){
 		CFloatPtr ptrTriggerDelay = nodeMap.GetNode("TriggerDelay");
 		if (!IsReadable(ptrTriggerDelay) || !IsWritable(ptrTriggerDelay)){
 			cout << "Unable to access Trigger Delay mode. Aborting...";
+			return -1;
+		}
+		if (delay < ptrTriggerDelay -> GetMin()){
+			cout << "Delay is smaller than minimum(" << ptrTriggerDelay-> GetMin() << "). Aborting.. " << endl;
+			return -1;
+		}
+		else if (delay > ptrTriggerDelay -> GetMax()){
+			cout << "Delay is larger than maximum(" << ptrTriggerDelay->GetMax() << "). Aborting.. " << endl;
 			return -1;
 		}
 		ptrTriggerDelay -> SetValue(delay);
@@ -725,20 +756,23 @@ int setTrigger(INodeMap& nodeMap, string source, string triggerType, string acti
 
 	// set trigger activation mode
 	//Options: LevelLow, LevelHigh, FallingEdge, RisingEdge, AnyEdge
-	CEnumerationPtr ptrTriggerActivation = nodeMap.GetNode("TriggerActivation");
-	if (!IsReadable(ptrTriggerActivation) || !IsWritable(ptrTriggerActivation)){
-		cout << "Unable to set trigger activation (enumeration  node retrieval). Aborting..." << endl;
-		return -1;
-	}
+	if (activation != ""){
+
+		CEnumerationPtr ptrTriggerActivation = nodeMap.GetNode("TriggerActivation");
+		if (!IsReadable(ptrTriggerActivation) || !IsWritable(ptrTriggerActivation)){
+			cout << "Unable to set trigger activation (enumeration  node retrieval). Aborting..." << endl;
+			return -1;
+		}
 
 
-	CEnumEntryPtr ptrTriggerActivationDesired = ptrTriggerActivation -> GetEntryByName(gcstring(activation.c_str()));
-	if (!IsReadable(ptrTriggerActivationDesired)){
-		cout << "Unable to get trigger activation mode (enum entry retrieval). Aborting..." << endl;
-		return -1;
+		CEnumEntryPtr ptrTriggerActivationDesired = ptrTriggerActivation -> GetEntryByName(gcstring(activation.c_str()));
+		if (!IsReadable(ptrTriggerActivationDesired)){
+			cout << "Unable to get trigger activation mode (enum entry retrieval). Aborting..." << endl;
+			return -1;
+		}
+		ptrTriggerActivation -> SetIntValue(ptrTriggerActivationDesired-> GetValue());
+		cout << "Trigger activation mode set to " << activation  << endl;
 	}
-	ptrTriggerActivation -> SetIntValue(ptrTriggerActivationDesired-> GetValue());
-	cout << "Trigger activation mode set to " << activation  << endl;
 
         //
         // Turn trigger mode on
@@ -855,6 +889,8 @@ int setShutterMode(INodeMap& nodeMap, string shutterMode){
 		cout <<"Unable to read or write sensor shutter mode" << endl;
 		return -1;
 	}
+	cout << "Before: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl; 
+
 	CEnumEntryPtr ptrSensorShutterModeDesired = ptrSensorShutterMode-> GetEntryByName(gcstring(shutterMode.c_str()));
 	if (!IsReadable(ptrSensorShutterModeDesired) || !IsWritable(ptrSensorShutterModeDesired)){
 		cout << "Unable to retrieve " << shutterMode << " shutter mode" << endl;
@@ -862,9 +898,30 @@ int setShutterMode(INodeMap& nodeMap, string shutterMode){
 	}
 	ptrSensorShutterMode -> SetIntValue(ptrSensorShutterModeDesired->GetValue());
 	cout << "Sensor shutter mode set to " << shutterMode << endl;
+	cout << "After: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
 	return 0;
 }
 
+int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
+	int result = 0;
+	
+	CEnumerationPtr ptrHandlingMode = sNodeMap.GetNode("StreamBufferHandlingMode");
+	if (!IsReadable(ptrHandlingMode) || ! IsWritable(ptrHandlingMode)){
+		cout << "Unable to set Buffer Handling mode (Enumeration node retrieval). Aborting.." << endl;
+		return -1;
+	}
+	cout << "Before: " << ptrHandlingMode -> GetDisplayName() <<  ": " << ptrHandlingMode -> GetCurrentEntry() -> GetSymbolic() << endl;
+	CEnumEntryPtr  ptrHandlingModeEntry = ptrHandlingMode -> GetEntryByName(gcstring(bufferHandlingMode.c_str()));
+	if (!IsReadable(ptrHandlingModeEntry)){
+		cout << "Unable to get Buffer Handlign mode (entry retrieval). Aborting.." << endl;
+		return -1;
+	}
+	ptrHandlingMode-> SetIntValue(ptrHandlingModeEntry->GetValue());
+	cout << "Stream Buffer Handling Mode set to " << bufferHandlingMode << endl << endl;
+	cout <<"After: " << ptrHandlingMode -> GetDisplayName() << ": " <<  ptrHandlingMode -> GetCurrentEntry()-> GetSymbolic();
+
+	return result;
+}
 int prepareCameras(CameraList camList,const string fileName){
 	int result = 0;
 	ifstream configFile(fileName);
@@ -889,19 +946,21 @@ int prepareCameras(CameraList camList,const string fileName){
 				else{
 					cout << "device serial number not readable" << endl;
 					return -1;
-				}
+				}	
+
 				json currentCam;
 				for (json::iterator it = cameras.begin(); it != cameras.end(); it++)
 				{
 					
 					if (it.value()["DeviceID"] == deviceSerialNumber){
 						currentCam = it.value();
-						cout << "current camera: " << it.key()<< endl;	
+						cout << "Current camera: " << it.key()<< endl;	
+						cout << "Serial number: " << deviceSerialNumber << endl;
 					}
 				}
 
 				if (currentCam.is_null()){
-					cout << "No file found for device with serial number" << deviceSerialNumber;
+					cout << "No json configuration found for device with serial number" << deviceSerialNumber;
 					return -1;
 				}
 				json inUse = currentCam["InUse"];
@@ -909,6 +968,7 @@ int prepareCameras(CameraList camList,const string fileName){
 					cout <<"InUse parameter is not a boolean, trying next camera..." << endl;
 					continue;
 				}
+			
 				if (!inUse){
 					cout << "Camera not in use: trying next camera.." << endl;
 				}
@@ -968,13 +1028,13 @@ int prepareCameras(CameraList camList,const string fileName){
 				if (!currentCam["TriggerSource"].is_null()){
 					chosenTrigger = currentCam["TriggerSource"];
 				}
-				//set trigger mode to FrameStart by default
-				string triggerType = "FrameStart";
+				
+				string triggerType;
 				if (!currentCam["TriggerSelector"].is_null()){
 					triggerType = currentCam["TriggerSelector"];
 				}
-				// set trigger activation to rising edge by default
-				string triggerActivation = "RisingEdge";
+				
+				string triggerActivation;
 				if (!currentCam["TriggerActivation"].is_null()){
 					triggerActivation = currentCam["TriggerActivation"];
 				}
@@ -986,9 +1046,14 @@ int prepareCameras(CameraList camList,const string fileName){
 			       if(!currentCam["TriggerDelay"].is_null()){
 				       delay = currentCam["TriggerDelay"];
 				}
-
+				// will not do anything if no trigger parameters specified in the config file
 				setTrigger(nodeMap, chosenTrigger,triggerType, triggerActivation,  overlap, delay);
 				enableChunkData(nodeMap);
+				if (!currentCam["StreamBufferHandlingMode"].is_null()){
+					INodeMap& sNodeMap = pCam -> GetTLStreamNodeMap();
+					string bufferHandlingMode = currentCam["StreamBufferHandlingMode"];
+					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
+				}
 				pCam-> DeInit();
 			}
 		}
