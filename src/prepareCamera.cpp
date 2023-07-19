@@ -406,8 +406,6 @@ int setHeight(INodeMap& nodeMap, int64_t heightToSet){
 	return result;
 
 }
-int setSensorWidth(INodeMap& nodeMap, int sensorWidth){
-}
 
 int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 	int result = 0;
@@ -903,7 +901,8 @@ int enableChunkData(INodeMap& nodeMap){
 }
 
 
-
+// options: NewestFirst, NewestOnly, OldestFirst, OldestFirstOverwrite
+// default is usually OldestFirst
 int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
 	int result = 0;
 	
@@ -924,6 +923,7 @@ int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
 
 	return result;
 }
+// print all nodemap info from /usr/src/spinnaker/src/NodeMapInfo
 int prepareCameras(CameraList camList,const string fileName){
 	int result = 0;
 	ifstream configFile(fileName);
@@ -974,6 +974,58 @@ int prepareCameras(CameraList camList,const string fileName){
 				if (!inUse){
 					cout << "Camera not in use: trying next camera.." << endl;
 				}
+				cout << "inuse" << endl;
+				// check if settings should be saved to a user set
+				bool userSet;
+				if (currentCam["UserSet"].is_boolean() && currentCam["UserSet"]){
+					userSet = true;
+				}
+				else{
+					userSet = false;
+				}
+				cout << userSet << endl;
+				// enables features to be saved to a user set
+				if (userSet){
+					CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
+					if (!IsReadable(ptrUserSetSelector) || ! IsWritable(ptrUserSetSelector)){
+						cout << "cannot read or write User Set Selector(enumeration node retrieval). Aborting..." << endl;
+						return -1;
+					}
+					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
+					cout << ptrUserSetSelector -> GetDisplayName() << ": " << ptrUserSetSelector -> GetCurrentEntry() -> GetSymbolic() << endl;
+     					CEnumerationPtr ptrUserSetFeatureSelector = nodeMap.GetNode("UserSetFeatureSelector");
+					if (!IsReadable(ptrUserSetFeatureSelector) || ! IsWritable(ptrUserSetFeatureSelector)){
+						cout << "Could not read or write User Set Feature Selector (enumeratino node retrieval). Aborting..." << endl;
+						return -1;
+						}
+     					for (json:: iterator features = currentCam.begin(); features!= currentCam.end(); ++features){
+	  					string currentFeature;
+						json feature =  features.key();
+						if (feature.is_string()){
+      							currentFeature = feature;
+      						}
+	    					else{
+	  						continue;
+	 					}
+						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
+						cout << ptrFeatureValue -> GetSymbolic() << endl;
+						if (!IsReadable(ptrFeatureValue)){
+							cout << "Could not retrieve feature node (enumeration entry node retrieval) for " << currentFeature << ". Aborting..." << endl;
+							return -1;
+						}
+       						ptrUserSetFeatureSelector -> SetIntValue(ptrFeatureValue -> GetValue());
+
+						CBooleanPtr ptrUserSetFeatureEnable = nodeMap.GetNode("UserSetFeatureEnable");
+						if (!IsReadable(ptrUserSetFeatureEnable))
+						{
+							cout << "Node to enable feature not readable." << endl;
+							return -1;
+							
+						}
+						cout << ptrUserSetFeatureEnable -> GetDisplayName() <<  ": " <<  ptrUserSetFeatureEnable -> GetValue()<< endl;
+					}
+				}
+				// set acquisition mode to continuous by default
 				string acquisitionMode = "Continuous";
 				if (!currentCam["AcquisitionMode"].is_null()){
 					acquisitionMode = currentCam["AcquisitionMode"];
@@ -1056,29 +1108,11 @@ int prepareCameras(CameraList camList,const string fileName){
 					string bufferHandlingMode = currentCam["StreamBufferHandlingMode"];
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
-				/* set user sets
-				if (currentCam["UserSet"].is_boolean() && currentCam["UserSet"]){
-					CEnumerationPtr ptrUserSetSelector = nodeMap.getNode("UserSetSelector");
-					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
-     					CEnumerationPtr ptrUserSetFeatureSelector = nodeMap.getNode("UserSetFeatureSelector");
-     					for (json:: iterator features = currentCam.begin(); features!= currentCam.end(); ++features){
-	  					string currentFeature;
-						if (features.is_string()){
-      							currentFeature = features;
-      						}
-	    					else{
-	  						continue;
-	 					}
-						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
-       						ptrUserSetFeatureSelector -> SetValue(ptrFeatureValue -> GetIntValue());
-						CBooleanPtr ptrUserSetFeatureEnable = nodeMap.getEntryByName("UserSetFeatureEnable");
-						ptrUserSetFeatureEnable -> SetValue(true);
-						CCommandPtr ptrUserSetSave = nodeMap.getEntryByName("UserSetSave");
-						ptrUserSetSave -> Execute();
-	 				}
-     					
+				// saves user set if specified to do so
+				if (userSet){
+					CCommandPtr ptrUserSetSave = nodeMap.GetNode("UserSetSave");
+					ptrUserSetSave -> Execute();		
 				}
-    				*/
     				
 				pCam-> DeInit();
 			}
