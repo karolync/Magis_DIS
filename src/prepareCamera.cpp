@@ -258,7 +258,7 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	return result;
 
 }
-
+// X Offset: horizontal offset from the origin to the region of interes (ROI)
 int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	int result = 0;
 	try{
@@ -294,7 +294,7 @@ int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	}
 	return result;
 }
-
+// vertical offset from the origin to ROI
 int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 	int result = 0;
 	try{
@@ -331,7 +331,7 @@ int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 	}
 	return result;// set trigger activation to rising edge by default
 }
-
+// width of image in pixels provided by device reflecting the region of interest: only the pixel information from ROI is processed
 int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 	int result = 0;
 	try{
@@ -406,7 +406,8 @@ int setHeight(INodeMap& nodeMap, int64_t heightToSet){
 	return result;
 
 }
-
+int setSensorWidth(INodeMap& nodeMap, int sensorWidth){
+}
 
 int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 	int result = 0;
@@ -609,7 +610,24 @@ int configureLUT(INodeMap&nodeMap, char* LUT){
 
 	return result;
 }
+int setShutterMode(INodeMap& nodeMap, string shutterMode){
+	CEnumerationPtr ptrSensorShutterMode = nodeMap.GetNode("SensorShutterMode");
+	if (!IsReadable(ptrSensorShutterMode) || ! IsWritable(ptrSensorShutterMode)){
+		cout <<"Unable to read or write sensor shutter mode" << endl;
+		return -1;
+	}
+	cout << "Before: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
+	CEnumEntryPtr ptrSensorShutterModeDesired = ptrSensorShutterMode-> GetEntryByName(gcstring(shutterMode.c_str()));
+	if (!IsReadable(ptrSensorShutterModeDesired) || !IsWritable(ptrSensorShutterModeDesired)){
+		cout << "Unable to retrieve " << shutterMode << " shutter mode" << endl;
+		return -1;
+	}
+	ptrSensorShutterMode -> SetIntValue(ptrSensorShutterModeDesired->GetValue());
+	cout << "Sensor shutter mode set to " << shutterMode << endl;
+	cout << "After: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
+	return 0;
+}
 
 int setTrigger(INodeMap& nodeMap, string source, string triggerType, string activation, string overlap, double delay){
 	int result = 0;
@@ -755,6 +773,7 @@ int setTrigger(INodeMap& nodeMap, string source, string triggerType, string acti
 	}
 
 	// set trigger activation mode
+	// trigger activation only available when source is set to hardware
 	//Options: LevelLow, LevelHigh, FallingEdge, RisingEdge, AnyEdge
 	if (activation != ""){
 
@@ -883,24 +902,7 @@ int enableChunkData(INodeMap& nodeMap){
 	return result;
 }
 
-int setShutterMode(INodeMap& nodeMap, string shutterMode){
-	CEnumerationPtr ptrSensorShutterMode = nodeMap.GetNode("SensorShutterMode");
-	if (!IsReadable(ptrSensorShutterMode) || ! IsWritable(ptrSensorShutterMode)){
-		cout <<"Unable to read or write sensor shutter mode" << endl;
-		return -1;
-	}
-	cout << "Before: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
-	CEnumEntryPtr ptrSensorShutterModeDesired = ptrSensorShutterMode-> GetEntryByName(gcstring(shutterMode.c_str()));
-	if (!IsReadable(ptrSensorShutterModeDesired) || !IsWritable(ptrSensorShutterModeDesired)){
-		cout << "Unable to retrieve " << shutterMode << " shutter mode" << endl;
-		return -1;
-	}
-	ptrSensorShutterMode -> SetIntValue(ptrSensorShutterModeDesired->GetValue());
-	cout << "Sensor shutter mode set to " << shutterMode << endl;
-	cout << "After: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
-	return 0;
-}
 
 int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
 	int result = 0;
@@ -1054,6 +1056,30 @@ int prepareCameras(CameraList camList,const string fileName){
 					string bufferHandlingMode = currentCam["StreamBufferHandlingMode"];
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
+				/* set user sets
+				if (currentCam["UserSet"].is_boolean() && currentCam["UserSet"]){
+					CEnumerationPtr ptrUserSetSelector = nodeMap.getNode("UserSetSelector");
+					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
+     					CEnumerationPtr ptrUserSetFeatureSelector = nodeMap.getNode("UserSetFeatureSelector");
+     					for (json:: iterator features = currentCam.begin(); features!= currentCam.end(); ++features){
+	  					string currentFeature;
+						if (features.is_string()){
+      							currentFeature = features;
+      						}
+	    					else{
+	  						continue;
+	 					}
+						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
+       						ptrUserSetFeatureSelector -> SetValue(ptrFeatureValue -> GetIntValue());
+						CBooleanPtr ptrUserSetFeatureEnable = nodeMap.getEntryByName("UserSetFeatureEnable");
+						ptrUserSetFeatureEnable -> SetValue(true);
+						CCommandPtr ptrUserSetSave = nodeMap.getEntryByName("UserSetSave");
+						ptrUserSetSave -> Execute();
+	 				}
+     					
+				}
+    				*/
+    				
 				pCam-> DeInit();
 			}
 		}
