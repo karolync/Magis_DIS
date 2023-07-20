@@ -420,13 +420,13 @@ int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 		}
 		cout << "Before: " << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
-		CEnumerationPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
+		CEnumEntryPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
 		// error if mode is not readable
 		if (!IsReadable(ptrAdcBitDepthDesired)){
 			cout << "Unable to get or set the ADC bit depth to the desired mode. Aborting..." << endl << endl;
 			return -1;
 		}
-		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetIntValue();
+		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetValue();
 		ptrAdcBitDepth -> SetIntValue(AdcBitDepthDesired);
 		cout << "ADC Bit Depth set to" <<  bitDepth  << endl;
 		cout << "After :" << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl;
@@ -914,12 +914,13 @@ int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
 	cout << "Before: " << ptrHandlingMode -> GetDisplayName() <<  ": " << ptrHandlingMode -> GetCurrentEntry() -> GetSymbolic() << endl;
 	CEnumEntryPtr  ptrHandlingModeEntry = ptrHandlingMode -> GetEntryByName(gcstring(bufferHandlingMode.c_str()));
 	if (!IsReadable(ptrHandlingModeEntry)){
-		cout << "Unable to get Buffer Handlign mode (entry retrieval). Aborting.." << endl;
+		cout << "Unable to get Buffer Handling mode (entry retrieval). Aborting.." << endl;
 		return -1;
 	}
+
 	ptrHandlingMode-> SetIntValue(ptrHandlingModeEntry->GetValue());
 	cout << "Stream Buffer Handling Mode set to " << bufferHandlingMode << endl << endl;
-	cout <<"After: " << ptrHandlingMode -> GetDisplayName() << ": " <<  ptrHandlingMode -> GetCurrentEntry()-> GetSymbolic();
+	cout <<"After: " << ptrHandlingMode -> GetDisplayName() << ": " <<  ptrHandlingMode -> GetCurrentEntry()-> GetSymbolic() << endl;
 
 	return result;
 }
@@ -1008,10 +1009,9 @@ int prepareCameras(CameraList camList,const string fileName){
 	  						continue;
 	 					}
 						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
-						cout << ptrFeatureValue -> GetSymbolic() << endl;
 						if (!IsReadable(ptrFeatureValue)){
 							cout << "Could not retrieve feature node (enumeration entry node retrieval) for " << currentFeature << ". Aborting..." << endl;
-							return -1;
+							continue;
 						}
        						ptrUserSetFeatureSelector -> SetIntValue(ptrFeatureValue -> GetValue());
 
@@ -1073,8 +1073,10 @@ int prepareCameras(CameraList camList,const string fileName){
 					string bitDepth = currentCam["AdcBitDepth"];
 					setADCBitDepth(nodeMap, bitDepth);
 				}
+				cout << currentCam["SensorShutterMode"];
 				if (!currentCam["SensorShutterMode"].is_null()){
-					string shutterMode = currentCam["ShutterMode"];
+					cout << currentCam << endl;
+					string shutterMode = currentCam["SensorShutterMode"];
 					setShutterMode(nodeMap, shutterMode);
 				}
 				
