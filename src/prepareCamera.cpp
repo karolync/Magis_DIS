@@ -1171,7 +1171,7 @@ int prepareCameras(CameraList camList,const string fileName){
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
 				// saves user set if specified to do so
-				if (userSet)
+				/*if (userSet)
 				{
 					CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
 					if (!IsReadable(ptrUserSetSelector) || ! IsWritable(ptrUserSetSelector)){
@@ -1185,6 +1185,7 @@ int prepareCameras(CameraList camList,const string fileName){
 					ptrUserSetSave -> Execute();
 					cout << "saved: " <<  ptrUserSetSave -> IsDone();		
 				}
+    				*/
     				
 				pCam-> DeInit();
 			}
