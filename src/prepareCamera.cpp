@@ -16,7 +16,13 @@ using namespace std;
 using namespace nlohmann::json_abi_v3_11_2;
 
 
-
+/* takes in a json file as a command line argument and sets camera attributes accordingly
+ * json parser errors are due to json file name being specified incorrectly or syntax errors in the json file
+ * json file should be in the same directory as the executable, and the command line argument should specify the directory if it is not the same as the current one
+ * this function can set Acquisition mode, exposure time, automatic exposure, gain, automatic gain, X and Y offset, width and height of the region of interest, 
+ * sensor shutter mode, ADC bit depth, stream buffer handling mode, and trigger source, mode, overlap, delay, and activation if desired
+ * All chunk data is enabled by default
+ *
 int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	int result = 0;
 	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
@@ -215,6 +221,44 @@ int setGain(INodeMap& nodeMap, double gainToSet){
 
     	return result;
 }
+int ResetGain(INodeMap& nodeMap){
+    int result = 0;
+
+    try
+    {
+        //
+        // Turn automatic gain on
+        CEnumerationPtr ptrGainAuto = nodeMap.GetNode("GainAuto");
+        if (!IsReadable(ptrGainAuto) ||
+            !IsWritable(ptrGainAuto))
+        {
+            cout << "Unable to enable automatic gain (enumeration node retrieval). Non-fatal error..." << endl << endl;
+            return -1;
+        }
+
+        CEnumEntryPtr ptrGainAutoContinuous = ptrGainAuto->GetEntryByName("Continuous");
+        if (!IsReadable(ptrGainAutoContinuous))
+        {
+            cout << "Unable to enable automatic gain (enum entry retrieval). Non-fatal error..." << endl << endl;
+            return -1;
+        }
+
+        ptrGainAuto->SetIntValue(ptrGainAutoContinuous->GetValue());
+
+        cout << "Automatic gain  enabled..." << endl << endl;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        cout << "Error: " << e.what() << endl;
+        result = -1;
+    }
+
+    
+
+
+    return result;
+
+}
 int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	int result = 0;
 	try
@@ -347,7 +391,7 @@ int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 		}		
 		else if (widthToSet < ptrWidth -> GetMin()){
 			widthToSet = ptrWidth -> GetMin();
-			cout << "Desired width is larger than the maximum, and has been set to " << ptrWidth -> GetMin() << "." << endl;
+			cout << "Desired width is smaller than the minimum, and has been set to " << ptrWidth -> GetMin() << "." << endl;
 		}
 		
 		else if (incrementRemainder != 0){
@@ -384,7 +428,7 @@ int setHeight(INodeMap& nodeMap, int64_t heightToSet){
 		}		
 		else if (heightToSet < ptrHeight -> GetMin()){
 			heightToSet = ptrHeight -> GetMin();
-			cout << "Desired height  is larger than the maximum, and has been set to " << ptrHeight -> GetMin() << "." << endl;
+			cout << "Desired height  is smaller  than the minimum, and has been set to " << ptrHeight -> GetMin() << "." << endl;
 		}
 		
 		else if (incrementRemainder != 0){
@@ -984,9 +1028,8 @@ int prepareCameras(CameraList camList,const string fileName){
 				else{
 					userSet = false;
 				}
-				cout << userSet << endl;
 				// enables features to be saved to a user set
-				if (userSet){
+			/*	if (userSet){
 					CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
 					if (!IsReadable(ptrUserSetSelector) || ! IsWritable(ptrUserSetSelector)){
 						cout << "cannot read or write User Set Selector(enumeration node retrieval). Aborting..." << endl;
@@ -1009,8 +1052,11 @@ int prepareCameras(CameraList camList,const string fileName){
 	  						continue;
 	 					}
 						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
+						// not all features specified in json file (DeviceID, InUse, StreamBufferHandlingMode) can be saved to a UserSet and often
+						//  don't make sense to be saved
+						//  move on to next entry in json file if this occurs
 						if (!IsReadable(ptrFeatureValue)){
-							cout << "Could not retrieve feature node (enumeration entry node retrieval) for " << currentFeature << ". Aborting..." << endl;
+							
 							continue;
 						}
        						ptrUserSetFeatureSelector -> SetIntValue(ptrFeatureValue -> GetValue());
@@ -1024,7 +1070,12 @@ int prepareCameras(CameraList camList,const string fileName){
 						}
 						cout << ptrUserSetFeatureEnable -> GetDisplayName() <<  ": " <<  ptrUserSetFeatureEnable -> GetValue()<< endl;
 					}
+					//save exposure and gain settings 
+					CEnumEntryPtr ptrExposureAuto = ptrUserSetFeatureSelector -> GetEntryByName("ExposureAuto");
+					ptrUserSetFeatureSelector -> SetIntValue(ptrExposureAuto -> GetValue());
+					
 				}
+				*/
 				// set acquisition mode to continuous by default
 				string acquisitionMode = "Continuous";
 				if (!currentCam["AcquisitionMode"].is_null()){
@@ -1032,18 +1083,27 @@ int prepareCameras(CameraList camList,const string fileName){
 				}	
 				configureAcquisition(nodeMap,acquisitionMode);
 				// set attributes
-				// check if exposure will be triggered or a set time/ automatic
-				// if timed:
-				double exposureTime;
 				if (!currentCam["Exposure"].is_null()){
-					exposureTime = currentCam["Exposure"];
+					//sets exposure to the specified time
+					if (currentCam["Exposure"].is_number()){
+					double exposureTime = currentCam["Exposure"];
 					setExposure(nodeMap, exposureTime);
-				} 
-				double gain;
-			
+					}
+					// puts exposure to continuous automatic if Exposure is specified in the json file but not a number
+					else{
+						ResetExposure(nodeMap);
+					}
+				} 			
 				if ( !currentCam["Gain"].is_null()){
-					gain = currentCam["Gain"];
-					setGain(nodeMap, gain);
+					if (currentCam["Gain"].is_number())
+					{
+						double gain = currentCam["Gain"];
+						setGain(nodeMap, gain);
+					}
+					// sets gain to continuous automatic is Gain is specified but not a number
+					else{
+						ResetGain(nodeMap);
+					}
 				}
 				string pixelFormat;
 				if (!currentCam["PixelFormat"].is_null()){
@@ -1111,9 +1171,19 @@ int prepareCameras(CameraList camList,const string fileName){
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
 				// saves user set if specified to do so
-				if (userSet){
+				if (userSet)
+				{
+					CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
+					if (!IsReadable(ptrUserSetSelector) || ! IsWritable(ptrUserSetSelector)){
+						cout << "cannot read or write User Set Selector(enumeration node retrieval). Aborting..." << endl;
+						return -1;
+					}
+					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
+					cout << ptrUserSetSelector -> GetDisplayName() << ": " << ptrUserSetSelector -> GetCurrentEntry() -> GetSymbolic() << endl;
+
 					CCommandPtr ptrUserSetSave = nodeMap.GetNode("UserSetSave");
-					ptrUserSetSave -> Execute();		
+					ptrUserSetSave -> Execute();
+					cout << "saved: " <<  ptrUserSetSave -> IsDone();		
 				}
     				
 				pCam-> DeInit();
@@ -1188,8 +1258,19 @@ int main(int argc, char** argv)
     }
 	else{
 		const string filename = argv[1];
-		prepareCameras(camList,filename );
-		// to find the camera serial numbers
+		/*CameraPtr pCam = nullptr;
+		pCam = camList.GetByIndex(0);	
+		pCam -> Init();
+		INodeMap& nodeMap = pCam -> GetNodeMap();
+		CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
+		CEnumEntryPtr ptrUserSet0 = ptrUserSetSelector-> GetEntryByName("UserSet0");
+		ptrUserSetSelector->SetIntValue( ptrUserSet0 -> GetValue());
+		CCommandPtr ptrUserSetLoad = nodeMap.GetNode("UserSetLoad");
+		ptrUserSetLoad -> Execute();
+		pCam -> DeInit();
+		*/
+		prepareCameras(camList,filename);
+		// factory reset the camera
 		/*CameraPtr pCam = nullptr;
 		for (unsigned int i = 0; i < camList.GetSize(); i++)
 		{
@@ -1197,18 +1278,17 @@ int main(int argc, char** argv)
 			pCam = camList.GetByIndex(i);
 			pCam-> Init();
 			INodeMap& nodeMap = pCam -> GetNodeMap();
-				
-			INodeMap& nodeMapTLDevice = pCam -> GetTLDeviceNodeMap();
-			gcstring deviceSerialNumber("");
-			CStringPtr ptrStringSerial = nodeMapTLDevice.GetNode("DeviceSerialNumber");
-			deviceSerialNumber = ptrStringSerial -> GetValue();
-			cout <<"device serial number: " <<  deviceSerialNumber;
+			CCommandPtr ptrFactoryReset = nodeMap.GetNode("FactoryReset");
+			ptrFactoryReset -> Execute(); 
+			pCam-> DeInit();
+			pCam = nullptr;
+
 		}
 		*/
 
 	}
 	camList.Clear();
-	system -> ReleaseInstance();	
+	system -> ReleaseInstance();
 	return result;	
 
 }
