@@ -22,7 +22,7 @@ using namespace nlohmann::json_abi_v3_11_2;
  * this function can set Acquisition mode, exposure time, automatic exposure, gain, automatic gain, X and Y offset, width and height of the region of interest, 
  * sensor shutter mode, ADC bit depth, stream buffer handling mode, and trigger source, mode, overlap, delay, and activation if desired
  * All chunk data is enabled by default
- *
+ */
 int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	int result = 0;
 	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
