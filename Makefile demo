@@ -63,7 +63,7 @@ ${OBJA}: ${ODIR}/%.o : ${SDIRA}/%.cpp
 	@${MKDIR} ${ODIR}
 # compile first prerequisite: don't link, object file has name of target (ODIR/prepareCamera.o)
 	${CXX} ${CFLAGS} ${INC} -Wall -D LINUX -c $< -o $@
-${OBJP}: ${ODIR}/%.o : ${SIDRP}/%.cpp
+${OBJP}: ${ODIR}/%.o : ${SDIRP}/%.cpp
   ${CXX} ${CFLAGS} ${INC} -Wall -D LINUX -c $< -o $@
 # Clean up intermediate objects
 clean_obj:
