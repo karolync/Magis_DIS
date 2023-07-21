@@ -305,34 +305,33 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	return result;
 
 }
-// X Offset: horizontal offset from the origin to the region of interes (ROI)
+// X Offset: horizontal offset in pixels from the origin to the region of interest (ROI)
 int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	int result = 0;
 	try{
 
 		CIntegerPtr ptrOffsetX = nodeMap.GetNode("OffsetX");
-		if (IsReadable(ptrOffsetX) && IsWritable(ptrOffsetX)){
-			if (OffsetXToSet < ptrOffsetX -> GetMin()){
-				cout << "OffsetX value below the minimum (" << ptrOffsetX -> GetMin() << "). Aborting..." << endl;
-				return -1;
-			}
-			else if (OffsetXToSet > ptrOffsetX -> GetMax()){
-				cout << "OffsetX value above the maximum (" << ptrOffsetX -> GetMax() << "). Aborting... " << endl;
-				return -1;
-			}
-			else if ((OffsetXToSet - ptrOffsetX-> GetMin()) % ptrOffsetX -> GetInc() !=0){
-				cout << "The different between OffsetX and the minimum X Offset is not a multiple of the increment (" << ptrOffsetX -> GetInc() << "). Aborting..." << endl;
-				return -1;
-			}
-			else {
-				ptrOffsetX -> SetValue(OffsetXToSet);
-				cout << "Offset X set to " << OffsetXToSet << "..." << endl;
-			}
+		if (!IsReadable(ptrOffsetX) || !IsWritable(ptrOffsetX)){
+			cout << "Cannot access OffsetX node (node retrieval). Aborting..." << endl;
+			return -1;
 		}
-		else
-		{
-			cout << "Offset X not readable or writable..." << endl;
+		int incrementRemainder = (OffsetXToSet - ptrOffsetX -> GetMin()) % ptrOffsetX -> GetInc();
+		if (OffsetXToSet < ptrOffsetX -> GetMin()){
+			OffsetXToSet = ptrOffsetX -> GetMin();
+			cout << "OffsetX value below the minimum, and has been set to the minimum (" << ptrOffsetX -> GetMin() << "). Aborting..." << endl;
 		}
+		else if (OffsetXToSet > ptrOffsetX -> GetMax()){
+			OffsetXToSet = ptrOffsetX -> GetMax();
+			cout << "OffsetX value above the maximum, and has been set to the maximum(" << ptrOffsetX -> GetMax() << ").  << endl;	
+		}
+		else if (incrementRemainder !=0){
+				cout << "The different between OffsetX and the minimum is not a multiple of the increment (" << ptrOffsetX -> GetInc() << "). The X Offset has
+					been set to " << (OffsetXToSet - incrementRemainder) << endl;
+		}
+			
+		ptrOffsetX -> SetValue(OffsetXToSet);
+		cout << "Offset X set to " << OffsetXToSet << "..." << endl;
+
 	}
 	catch (Spinnaker::Exception& e)
 	{
@@ -347,36 +346,34 @@ int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 	try{
 
 		CIntegerPtr ptrOffsetY = nodeMap.GetNode("OffsetY");
-		if (IsReadable(ptrOffsetY) && IsWritable(ptrOffsetY)){
-			if (OffsetYToSet < ptrOffsetY -> GetMin()){
-				cout << "OffsetY value below the minimum. (" << ptrOffsetY -> GetMin() << "). Aborting..." << endl;
-				return -1;
-			}
-			else if (OffsetYToSet > ptrOffsetY -> GetMax()){
-				cout << "OffsetY value above the maximum.(" << ptrOffsetY -> GetMax() << "). Aborting... " << endl;
-				return -1;
-			}
-			else if ((OffsetYToSet - ptrOffsetY-> GetMin()) % ptrOffsetY -> GetInc() !=0){
-				cout << "The different between OffsetY and the minimum is not a multiple of the increment (" << ptrOffsetY -> GetInc() << "). Aborting..." << endl;
-				return -1;
-			}
-			else {
-				ptrOffsetY -> SetValue(OffsetYToSet);
-				cout << "Offset Y set to " << OffsetYToSet << "..." << endl;
-			}
+		if (!IsReadable(ptrOffsetY) || !IsWritable(ptrOffsetY)){
+			cout << "Cannot access OffsetY node (node retrieval). Aborting..." << endl;
+			return -1;
 		}
+		int incrementRemainder = (OffsetYToSet - ptrOffsetY -> GetMin()) % ptrOffsetY -> GetInc();
+		if (OffsetYToSet < ptrOffsetY -> GetMin()){
+			OffsetYToSet = ptrOffsetY -> GetMin();
+			cout << "OffsetY value below the minimum, and has been set to the minimum (" << ptrOffsetY -> GetMin() << "). Aborting..." << endl;
+		}
+		else if (OffsetYToSet > ptrOffsetY -> GetMax()){
+			OffsetYToSet = ptrOffsetY -> GetMax();
+			cout << "OffsetY value above the maximum, and has been set to the maximum(" << ptrOffsetY -> GetMax() << ").  << endl;	
+		}
+		else if (incrementRemainder !=0){
+				cout << "The different between OffsetY and the minimum is not a multiple of the increment (" << ptrOffsetY -> GetInc() << "). The Y Offset has
+					been set to " << (OffsetYToSet - incrementRemainder) << endl;
+		}
+			
+		ptrOffsetY -> SetValue(OffsetYToSet);
+		cout << "Offset Y set to " << OffsetYToSet << "..." << endl;
 
-			else
-		{
-			cout << "Offset Y not readable or writable..." << endl;
-		}
 	}
 	catch (Spinnaker::Exception& e)
 	{
 		cout << "Error: " <<e.what() << endl;
 		result = -1;
 	}
-	return result;// set trigger activation to rising edge by default
+	return result;
 }
 // width of image in pixels provided by device reflecting the region of interest: only the pixel information from ROI is processed
 int setWidth(INodeMap& nodeMap, int64_t widthToSet){
@@ -1261,6 +1258,10 @@ int main(int argc, char** argv)
         return -1;
     }
 	else{
+		// if no arguments given, factory reset?, set default, do nothing?
+		if (argc == 0){
+		}
+		else{
 		const string filename = argv[1];
 		/*CameraPtr pCam = nullptr;
 		pCam = camList.GetByIndex(0);	
@@ -1274,6 +1275,7 @@ int main(int argc, char** argv)
 		pCam -> DeInit();
 		*/
 		prepareCameras(camList,filename);
+		}
 		// factory reset the camera
 		/*CameraPtr pCam = nullptr;
 		for (unsigned int i = 0; i < camList.GetSize(); i++)
