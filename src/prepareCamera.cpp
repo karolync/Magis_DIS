@@ -25,6 +25,7 @@ using namespace nlohmann::json_abi_v3_11_2;
  * All chunk data is enabled by default
  * Technical reference with names of all nodes and enumeration values : http://softwareservices.flir.com/BFS-U3-13Y3/latest/Model/public/index.html
  * on some RPis, needs to be run with sudo in order to detect cameras
+ * Camera settings are saved to UserSet0 at the end of this program and will be automatically loaded the next time the camera is turned on
  */
 int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	int result = 0;
@@ -255,10 +256,6 @@ int ResetGain(INodeMap& nodeMap){
         cout << "Error: " << e.what() << endl;
         result = -1;
     }
-
-    
-
-
     return result;
 
 }
@@ -401,8 +398,7 @@ int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 
 		ptrWidth->SetValue(widthToSet);
 
-		cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;
-	
+		cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;	
 	}
 
 	catch (Spinnaker::Exception& e)
@@ -944,7 +940,6 @@ int enableChunkData(INodeMap& nodeMap){
 	return result;
 }
 
-
 // options: NewestFirst, NewestOnly, OldestFirst, OldestFirstOverwrite
 // default is usually OldestFirst
 int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
@@ -1007,76 +1002,20 @@ int prepareCameras(CameraList camList,const string fileName){
 				}
 
 				if (currentCam.is_null()){
-					cout << "No json configuration found for device with serial number" << deviceSerialNumber;
-					return -1;
+					cout << "No json configuration found for device with serial number" << deviceSerialNumber << endl;
+					continue;
 				}
 				json inUse = currentCam["InUse"];
 				if (!inUse.is_boolean()){
-					cout <<"InUse parameter is not a boolean, trying next camera..." << endl;
+					cout << "InUse parameter is not a boolean, trying next camera..." << endl;
 					continue;
 				}
 			
 				if (!inUse){
 					cout << "Camera not in use: trying next camera.." << endl;
 				}
-				cout << "inuse" << endl;
-				// check if settings should be saved to a user set
-				bool userSet;
-				if (currentCam["UserSet"].is_boolean() && currentCam["UserSet"]){
-					userSet = true;
-				}
-				else{
-					userSet = false;
-				}
-				// enables features to be saved to a user set
-			/*	if (userSet){
-					CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
-					if (!IsReadable(ptrUserSetSelector) || ! IsWritable(ptrUserSetSelector)){
-						cout << "cannot read or write User Set Selector(enumeration node retrieval). Aborting..." << endl;
-						return -1;
-					}
-					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
-					cout << ptrUserSetSelector -> GetDisplayName() << ": " << ptrUserSetSelector -> GetCurrentEntry() -> GetSymbolic() << endl;
-     					CEnumerationPtr ptrUserSetFeatureSelector = nodeMap.GetNode("UserSetFeatureSelector");
-					if (!IsReadable(ptrUserSetFeatureSelector) || ! IsWritable(ptrUserSetFeatureSelector)){
-						cout << "Could not read or write User Set Feature Selector (enumeratino node retrieval). Aborting..." << endl;
-						return -1;
-						}
-     					for (json:: iterator features = currentCam.begin(); features!= currentCam.end(); ++features){
-	  					string currentFeature;
-						json feature =  features.key();
-						if (feature.is_string()){
-      							currentFeature = feature;
-      						}
-	    					else{
-	  						continue;
-	 					}
-						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
-						// not all features specified in json file (DeviceID, InUse, StreamBufferHandlingMode) can be saved to a UserSet and often
-						//  don't make sense to be saved
-						//  move on to next entry in json file if this occurs
-						if (!IsReadable(ptrFeatureValue)){
-							
-							continue;
-						}
-       						ptrUserSetFeatureSelector -> SetIntValue(ptrFeatureValue -> GetValue());
-
-						CBooleanPtr ptrUserSetFeatureEnable = nodeMap.GetNode("UserSetFeatureEnable");
-						if (!IsReadable(ptrUserSetFeatureEnable))
-						{
-							cout << "Node to enable feature not readable." << endl;
-							return -1;
-							
-						}
-						cout << ptrUserSetFeatureEnable -> GetDisplayName() <<  ": " <<  ptrUserSetFeatureEnable -> GetValue()<< endl;
-					}
-					//save exposure and gain settings 
-					CEnumEntryPtr ptrExposureAuto = ptrUserSetFeatureSelector -> GetEntryByName("ExposureAuto");
-					ptrUserSetFeatureSelector -> SetIntValue(ptrExposureAuto -> GetValue());
-					
-				}
-				*/
-				// set acquisition mode to continuous by default
+			
+				// set acquisition mode to continuous by default, and will change if the configuration file specifies otherwise
 				string acquisitionMode = "Continuous";
 				if (!currentCam["AcquisitionMode"].is_null()){
 					acquisitionMode = currentCam["AcquisitionMode"];
@@ -1094,7 +1033,7 @@ int prepareCameras(CameraList camList,const string fileName){
 						ResetExposure(nodeMap);
 					}
 				} 			
-				if ( !currentCam["Gain"].is_null()){
+				if (!currentCam["Gain"].is_null()){
 					if (currentCam["Gain"].is_number())
 					{
 						double gain = currentCam["Gain"];
@@ -1139,12 +1078,10 @@ int prepareCameras(CameraList camList,const string fileName){
 					string shutterMode = currentCam["SensorShutterMode"];
 					setShutterMode(nodeMap, shutterMode);
 				}
-				
 				string chosenTrigger;
 				if (!currentCam["TriggerSource"].is_null()){
 					chosenTrigger = currentCam["TriggerSource"];
 				}
-				
 				string triggerType;
 				if (!currentCam["TriggerSelector"].is_null()){
 					triggerType = currentCam["TriggerSelector"];
@@ -1158,35 +1095,29 @@ int prepareCameras(CameraList camList,const string fileName){
 				if (!currentCam["TriggerOverlap"].is_null()){
 					overlap = currentCam["TriggerOverlap"];
 				}
-				double delay =-1;
+				double delay = -1;
 			       if(!currentCam["TriggerDelay"].is_null()){
 				       delay = currentCam["TriggerDelay"];
 				}
 				// will not do anything if no trigger parameters specified in the config file
 				setTrigger(nodeMap, chosenTrigger,triggerType, triggerActivation,  overlap, delay);
+				// enables data to be sent along with image data
 				enableChunkData(nodeMap);
+				// sets buffer handling mode
 				if (!currentCam["StreamBufferHandlingMode"].is_null()){
 					INodeMap& sNodeMap = pCam -> GetTLStreamNodeMap();
 					string bufferHandlingMode = currentCam["StreamBufferHandlingMode"];
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
-				// saves user set if specified to do so
-				/*if (userSet)
-				{
-					CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
-					if (!IsReadable(ptrUserSetSelector) || ! IsWritable(ptrUserSetSelector)){
-						cout << "cannot read or write User Set Selector(enumeration node retrieval). Aborting..." << endl;
-						return -1;
-					}
-					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
-					cout << ptrUserSetSelector -> GetDisplayName() << ": " << ptrUserSetSelector -> GetCurrentEntry() -> GetSymbolic() << endl;
-
-					CCommandPtr ptrUserSetSave = nodeMap.GetNode("UserSetSave");
-					ptrUserSetSave -> Execute();
-					cout << "saved: " <<  ptrUserSetSave -> IsDone();		
-				}
-    				*/
-    				
+				//save current settings to userset, and set them to default so that they load the next time the camera is turned on
+				CEnumerationPtr ptrUserSelector = nodeMap.getNode("UserSetSelector");
+				ptrUserSelector -> SetIntValue(ptrUserSelector -> GetEntryByName("UserSet0") -> GetValue();
+				CCommandPtr ptrUserSetSave = nodeMap.GetNode("UserSetSave");
+				ptrUserSetSave -> Execute();
+				CEnumerationPtr ptrUserSetDefualt = nodeMap.GetNode("UserSetDefault");
+				CEnumEntryPtr ptrUserSetDefault0 = ptrUserSetDefault -> GetEntryByName("UserSet0");
+				ptrUserSetDefault -> SetIntValue(ptrUserSetDefault0 -> GetValue());
+				cout << "Settings saved to " << ptrUserSetDefault0 -> GetSymbolic() << endl;
 				pCam-> DeInit();
 			}
 		}
@@ -1258,8 +1189,10 @@ int main(int argc, char** argv)
         return -1;
     }
 	else{
-		// if no arguments given, factory reset?, set default, do nothing?
+		// if no arguments given, do nothing
 		if (argc == 0){
+			cout << "No configuration file given, so no settings will be changed." << endl;
+			return -1;
 		}
 		else{
 		const string filename = argv[1];
