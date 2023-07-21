@@ -17,7 +17,7 @@ using namespace nlohmann::json_abi_v3_11_2;
 
 
 /* takes in a json file as a command line argument and sets camera attributes accordingly
- * json parser errors are due to json file name being specified incorrectly or syntax errors in the json file
+ * If no command arguments are given, the program will not set any settings
  * json file should be in the same directory as the executable, and the command line argument should specify the directory if it is not the same as the current one
  * std logic error usually due to not passing in a command line argument
  * this function can set Acquisition mode, exposure time, automatic exposure, gain, automatic gain, X and Y offset, width and height of the region of interest, 
