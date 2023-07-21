@@ -39,8 +39,8 @@ _OBJA = acquireImages.o
 OBJP = $(patsubst %,$(ODIR)/%,$(_OBJP))
 OBJA = $(patsubst %, $(ODIR)/%, $(_OBJA))
 INC = -I./include
-INC += -I/usr/include/spinnaker
-INC += -I/usr/src/json/single_include/nlohmann
+INC += -I/opt/spinnaker/include
+INC += -I/home/magis/json/single_include/nlohmann
 LIB += -Wl,-Bdynamic ${LGPIO_LIB} ${SPINNAKER_LIB}
  
 ################################################################################
