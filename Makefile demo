@@ -52,7 +52,7 @@ LIB += -Wl,-Bdynamic ${LGPIO_LIB} ${SPINNAKER_LIB}
 ${OUTPUTNAMEP}: ${OBJP}
 	${CXX} -o ${OUTPUTNAMEP} ${OBJP} ${LIB}
 $(OUTPUTNAMEA}: ${OBJA}
-  ${CXX} -o ${OUTPUTNAMEA} ${OBJA} ${LIB}
+	${CXX} -o ${OUTPUTNAMEA} ${OBJA} ${LIB}
 #some phony target with both executables
 #somehow need two {OBJ, SDIR, etc.}
 # want ODIR to be demo, which is current directory
