@@ -59,11 +59,11 @@ $(OUTPUTNAMEA}: ${OBJA}
 #all other steps should be the same
 # Intermediate object files
 # pattern rule - prerequisites are cpp files located in source directory with same name as object files located in object directory
-${OBJA}: ${ODIR}/%.o : ${SDIRA}/%.cpp
+${OBJP}: ${ODIR}/%.o : ${SDIRP}/%.cpp
 	@${MKDIR} ${ODIR}
 # compile first prerequisite: don't link, object file has name of target (ODIR/prepareCamera.o)
 	${CXX} ${CFLAGS} ${INC} -Wall -D LINUX -c $< -o $@
-${OBJP}: ${ODIR}/%.o : ${SDIRP}/%.cpp
+${OBJA}: ${ODIR}/%.o : ${SDIRA}/%.cpp
   ${CXX} ${CFLAGS} ${INC} -Wall -D LINUX -c $< -o $@
 # Clean up intermediate objects
 clean_obj:
