@@ -1,5 +1,5 @@
 ################################################################################
-# Makefile for prepareCamera and acquireImages
+# Makefile for acquireImages.cpp
 ################################################################################
 PROJECT_ROOT=./
 
@@ -10,8 +10,7 @@ CFLAGS += -std=c++11 -g
 ifeq ($(wildcard ${OPT_INC}),)
 CXX = g++ ${CFLAGS}
 ODIR  = .obj/build
-SDIRP  = ./prepareCamera
-SDIRA = ./acquireImages
+SDIR  = .
 MKDIR = mkdir -p
 PLATFORM = $(shell uname)
 ifeq ($(PLATFORM),Darwin)
@@ -19,8 +18,9 @@ OS = mac
 endif
 endif
 
-OUTPUTNAMEP = prepareCamera
-OUTPUTNAMEA = acquireImages
+# OUTPUTNAME = acquireImages prepareCamera
+# OUTPUTNAME = $(patsubst %,%,$(_OUTPUTNAME))
+
 OUTDIR = .
 
 ################################################################################
@@ -33,11 +33,8 @@ LGPIO_LIB = -lpigpio
 ################################################################################
 # Master inc/lib/obj/dep settings
 ################################################################################
-_OBJP = prepareCamera.o
-_OBJA = acquireImages.o
-# turn object file names into ones that are in the currct directory
-OBJP = $(patsubst %,$(ODIR)/%,$(_OBJP))
-OBJA = $(patsubst %, $(ODIR)/%, $(_OBJA))
+_OBJ = acquireImages.o prepareCamera.o
+OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 INC = -I./include
 INC += -I/opt/spinnaker/include
 INC += -I/home/magis/json/single_include/nlohmann
@@ -47,30 +44,30 @@ LIB += -Wl,-Bdynamic ${LGPIO_LIB} ${SPINNAKER_LIB}
 # Rules/recipes
 ################################################################################
 # Final binary
-# Final binary
-.PHONY: ${OUTPUTNAMEP} ${OUTPUTNAMEA}
-${OUTPUTNAMEP}: ${OBJP}
-	${CXX} -o ${OUTPUTNAMEP} ${OBJP} ${LIB}
-$(OUTPUTNAMEA}: ${OBJA}
-	${CXX} -o ${OUTPUTNAMEA} ${OBJA} ${LIB}
-#some phony target with both executables
-#somehow need two {OBJ, SDIR, etc.}
-# want ODIR to be demo, which is current directory
-#all other steps should be the same
+
+all: acquireImages prepareCamera
+
+acquireImages: % : ${ODIR}/%.o
+	${CXX} -o $@ $< ${LIB}
+	
+
+prepareCamera: % : ${ODIR}/%.o
+	${CXX} -o $@ $< ${LIB}
+
+
 # Intermediate object files
-# pattern rule - prerequisites are cpp files located in source directory with same name as object files located in object directory
-${OBJP}: ${ODIR}/%.o : ${SDIRP}/%.cpp
+${OBJ}: ${ODIR}/%.o : ${SDIR}/%.cpp
 	@${MKDIR} ${ODIR}
-# compile first prerequisite: don't link, object file has name of target (ODIR/prepareCamera.o)
 	${CXX} ${CFLAGS} ${INC} -Wall -D LINUX -c $< -o $@
-${OBJA}: ${ODIR}/%.o : ${SDIRA}/%.cpp
-  ${CXX} ${CFLAGS} ${INC} -Wall -D LINUX -c $< -o $@
+
 # Clean up intermediate objects
 clean_obj:
-	rm -f ${OBJ*}
+	rm -f ${OBJ}
 	@echo "intermediate objects cleaned up!"
 
 # Clean up everything.
 clean: clean_obj
-	rm -f ${OUTDIR}/${OUTPUTNAME*}
+	rm -f ${OUTDIR}/acquireImages
+	rm -f ${OUTDIR}/prepareCamera
 	@echo "all cleaned up!"
+
