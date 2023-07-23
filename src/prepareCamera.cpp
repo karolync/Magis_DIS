@@ -27,6 +27,8 @@ using namespace nlohmann::json_abi_v3_11_2;
  * on some RPis, needs to be run with sudo in order to detect cameras
  * Camera settings are saved to UserSet0 at the end of this program and will be automatically loaded the next time the camera is turned on
  */
+// parameter name: AcquisitionMode
+// options for its values: Continuous, SingleFrame, MultiFrame
 int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	int result = 0;
 	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
@@ -49,6 +51,8 @@ int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	cout << "After: " << ptrAcquisitionMode -> GetDisplayName() << ": " << ptrAcquisitionMode -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
 	return result;
 }
+// property name: Exposure
+// Options: a double or Auto
 int setExposure(INodeMap& nodeMap, double exposureTimeToSet){
 	int result = 0;
 	cout << endl << endl << "*** CONFIGURING EXPOSURE ***" << endl << endl;
@@ -170,11 +174,10 @@ int ResetExposure(INodeMap& nodeMap)
         result = -1;
     }
 
-    
-
-
     return result;
 }
+// parameter name: Gain
+// options: a double or Auto
 int setGain(INodeMap& nodeMap, double gainToSet){
 	// Turn off automatic gain
         // gain auto: once or continuous
@@ -186,8 +189,7 @@ int setGain(INodeMap& nodeMap, double gainToSet){
 	int result = 0;
 	try{
        		 CEnumerationPtr ptrGainAuto = nodeMap.GetNode("GainAuto");
-       		 if (IsReadable(ptrGainAuto) &&
-            	IsWritable(ptrGainAuto))
+       		 if (IsReadable(ptrGainAuto) && IsWritable(ptrGainAuto))
         	{		
             		CEnumEntryPtr ptrGainAutoOff = ptrGainAuto->GetEntryByName("Off");
             		if (IsReadable(ptrGainAutoOff))
@@ -215,7 +217,6 @@ int setGain(INodeMap& nodeMap, double gainToSet){
         	ptrGain->SetValue(gainToSet);
 
         	cout << std::fixed << "Gain set to " << gainToSet << " us"  << endl << endl;
-		cout << "After: " << ptrGain -> GetDisplayName() << ": " << ptrGain -> GetValue() << endl << endl;
     	}
     	catch (Spinnaker::Exception& e)
     	{
@@ -259,6 +260,7 @@ int ResetGain(INodeMap& nodeMap){
     return result;
 
 }
+parameter name: PixelFormat
 int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	int result = 0;
 	try
@@ -271,7 +273,6 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 			return -1;
 		}
         	
-		cout << "Before: " << ptrPixelFormat-> GetDisplayName() << ": " << ptrPixelFormat -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
             	//Retrieve the desired entry node from the enumeration node
             	CEnumEntryPtr ptrDesiredPixelFormat = ptrPixelFormat->GetEntryByName(gcstring(pixelFormat.c_str()));
@@ -284,7 +285,6 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
                		ptrPixelFormat->SetIntValue(DesiredPixelFormat);
 
                 	cout << "Pixel format set to " << ptrPixelFormat->GetCurrentEntry()->GetSymbolic()  << endl;
-			cout << "After: " << ptrPixelFormat -> GetDisplayName() << ": " << ptrPixelFormat -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
             	}
             	else
             	{
@@ -303,6 +303,8 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 
 }
 // X Offset: horizontal offset in pixels from the origin to the region of interest (ROI)
+//parameter name: OffsetX
+// options: an integer in pixels
 int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	int result = 0;
 	try{
@@ -338,6 +340,8 @@ int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	return result;
 }
 // vertical offset from the origin to ROI
+// parameter: OffsetY
+// options: an integer in pixels
 int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 	int result = 0;
 	try{
@@ -446,7 +450,8 @@ int setHeight(INodeMap& nodeMap, int64_t heightToSet){
 	return result;
 
 }
-
+// parameter name: AdcBitDepth
+// Options: Bit10, etc.
 int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 	int result = 0;
 	try
@@ -458,7 +463,6 @@ int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 			cout << "Unable to set ADC Bit Depth (enum retrieval). Aborting..." << endl << endl;
 			return -1;
 		}
-		cout << "Before: " << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
 		CEnumEntryPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
 		// error if mode is not readable
@@ -468,9 +472,7 @@ int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 		}
 		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetValue();
 		ptrAdcBitDepth -> SetIntValue(AdcBitDepthDesired);
-		cout << "ADC Bit Depth set to" <<  bitDepth  << endl;
-		cout << "After :" << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl;
-	
+		cout << "ADC Bit Depth set to" <<  bitDepth  << endl;	
 	}
 	catch (Spinnaker::Exception& e) { 
 		cout << "Error: " << e.what() << endl;
@@ -648,6 +650,8 @@ int configureLUT(INodeMap&nodeMap, char* LUT){
 
 	return result;
 }
+//parameter name: SensorShutterMode
+// options: Rolling for some devices, Global for some
 int setShutterMode(INodeMap& nodeMap, string shutterMode){
 	CEnumerationPtr ptrSensorShutterMode = nodeMap.GetNode("SensorShutterMode");
 	if (!IsReadable(ptrSensorShutterMode) || ! IsWritable(ptrSensorShutterMode)){
@@ -971,14 +975,13 @@ int prepareCameras(CameraList camList,const string fileName){
 	if (!configurations.is_null()){	
 		CameraPtr pCam = nullptr;
 		json cameras = configurations["Cameras"];
-			try {
-				for (unsigned int i = 0; i < camList.GetSize(); i++)
-				{
-			
+		try {
+			for (unsigned int i = 0; i < camList.GetSize(); i++)
+			{
 				pCam = camList.GetByIndex(i);
 				pCam-> Init();
 				INodeMap& nodeMap = pCam -> GetNodeMap();
-				
+				// get device serial number
 				INodeMap& nodeMapTLDevice = pCam -> GetTLDeviceNodeMap();
 				gcstring deviceSerialNumber("");
 				CStringPtr ptrStringSerial = nodeMapTLDevice.GetNode("DeviceSerialNumber");
@@ -989,11 +992,11 @@ int prepareCameras(CameraList camList,const string fileName){
 					cout << "device serial number not readable" << endl;
 					return -1;
 				}	
-
+				// access the settings from the config file associated with the current camera
 				json currentCam;
 				for (json::iterator it = cameras.begin(); it != cameras.end(); it++)
 				{
-					
+					// find serial number of each device described in file
 					if (it.value()["DeviceID"] == deviceSerialNumber){
 						currentCam = it.value();
 						cout << "Current camera: " << it.key()<< endl;	
@@ -1005,6 +1008,7 @@ int prepareCameras(CameraList camList,const string fileName){
 					cout << "No json configuration found for device with serial number" << deviceSerialNumber << endl;
 					continue;
 				}
+				// check is camera is specified as InUse
 				json inUse = currentCam["InUse"];
 				if (!inUse.is_boolean()){
 					cout << "InUse parameter is not a boolean, trying next camera..." << endl;
@@ -1021,9 +1025,10 @@ int prepareCameras(CameraList camList,const string fileName){
 					acquisitionMode = currentCam["AcquisitionMode"];
 				}	
 				configureAcquisition(nodeMap,acquisitionMode);
+					
 				// set attributes
 				if (!currentCam["Exposure"].is_null()){
-					//sets exposure to the specified time
+				//sets exposure to the specified time
 					if (currentCam["Exposure"].is_number()){
 					double exposureTime = currentCam["Exposure"];
 					setExposure(nodeMap, exposureTime);
@@ -1044,9 +1049,8 @@ int prepareCameras(CameraList camList,const string fileName){
 						ResetGain(nodeMap);
 					}
 				}
-				string pixelFormat;
 				if (!currentCam["PixelFormat"].is_null()){
-					pixelFormat = currentCam["PixelFormat"];		
+					string pixelFormat = currentCam["PixelFormat"];		
 					setPixelFormat(nodeMap, pixelFormat);
 				}
 				if (!currentCam["OffsetX"].is_null()){
@@ -1072,7 +1076,6 @@ int prepareCameras(CameraList camList,const string fileName){
 					string bitDepth = currentCam["AdcBitDepth"];
 					setADCBitDepth(nodeMap, bitDepth);
 				}
-				cout << currentCam["SensorShutterMode"];
 				if (!currentCam["SensorShutterMode"].is_null()){
 					cout << currentCam << endl;
 					string shutterMode = currentCam["SensorShutterMode"];
@@ -1085,8 +1088,7 @@ int prepareCameras(CameraList camList,const string fileName){
 				string triggerType;
 				if (!currentCam["TriggerSelector"].is_null()){
 					triggerType = currentCam["TriggerSelector"];
-				}
-				
+				}	
 				string triggerActivation;
 				if (!currentCam["TriggerActivation"].is_null()){
 					triggerActivation = currentCam["TriggerActivation"];
@@ -1096,8 +1098,8 @@ int prepareCameras(CameraList camList,const string fileName){
 					overlap = currentCam["TriggerOverlap"];
 				}
 				double delay = -1;
-			       if(!currentCam["TriggerDelay"].is_null()){
-				       delay = currentCam["TriggerDelay"];
+				if(!currentCam["TriggerDelay"].is_null()){
+				     	delay = currentCam["TriggerDelay"];
 				}
 				// will not do anything if no trigger parameters specified in the config file
 				setTrigger(nodeMap, chosenTrigger,triggerType, triggerActivation,  overlap, delay);
@@ -1133,8 +1135,6 @@ int prepareCameras(CameraList camList,const string fileName){
 		
 	return result;
 }
-
-
 
 int main(int argc, char** argv)
 {
@@ -1195,39 +1195,11 @@ int main(int argc, char** argv)
 			return -1;
 		}
 		else{
-		const string filename = argv[1];
-		/*CameraPtr pCam = nullptr;
-		pCam = camList.GetByIndex(0);	
-		pCam -> Init();
-		INodeMap& nodeMap = pCam -> GetNodeMap();
-		CEnumerationPtr ptrUserSetSelector = nodeMap.GetNode("UserSetSelector");
-		CEnumEntryPtr ptrUserSet0 = ptrUserSetSelector-> GetEntryByName("UserSet0");
-		ptrUserSetSelector->SetIntValue( ptrUserSet0 -> GetValue());
-		CCommandPtr ptrUserSetLoad = nodeMap.GetNode("UserSetLoad");
-		ptrUserSetLoad -> Execute();
-		pCam -> DeInit();
-		*/
-		prepareCameras(camList,filename);
+			const string filename = argv[1];
+			prepareCameras(camList,filename);
 		}
-		// factory reset the camera
-		/*CameraPtr pCam = nullptr;
-		for (unsigned int i = 0; i < camList.GetSize(); i++)
-		{
-				
-			pCam = camList.GetByIndex(i);
-			pCam-> Init();
-			INodeMap& nodeMap = pCam -> GetNodeMap();
-			CCommandPtr ptrFactoryReset = nodeMap.GetNode("FactoryReset");
-			ptrFactoryReset -> Execute(); 
-			pCam-> DeInit();
-			pCam = nullptr;
-
-		}
-		*/
-
 	}
 	camList.Clear();
 	system -> ReleaseInstance();
 	return result;	
-
 }
