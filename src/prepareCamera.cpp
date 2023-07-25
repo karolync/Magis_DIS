@@ -16,7 +16,19 @@ using namespace std;
 using namespace nlohmann::json_abi_v3_11_2;
 
 
-
+/* takes in a json file as a command line argument and sets camera attributes accordingly
+ * If no command arguments are given, the program will not set any settings
+ * json file should be in the same directory as the executable, and the command line argument should specify the directory if it is not the same as the current one
+ * std logic error usually due to not passing in a command line argument
+ * this function can set Acquisition mode, exposure time, automatic exposure, gain, automatic gain, X and Y offset, width and height of the region of interest, 
+ * sensor shutter mode, ADC bit depth, stream buffer handling mode, and trigger source, mode, overlap, delay, and activation if desired
+ * All chunk data is enabled by default
+ * Technical reference with names of all nodes and enumeration values : http://softwareservices.flir.com/BFS-U3-13Y3/latest/Model/public/index.html
+ * on some RPis, needs to be run with sudo in order to detect cameras
+ * Camera settings are saved to UserSet0 at the end of this program and will be automatically loaded the next time the camera is turned on
+ */
+// parameter name: AcquisitionMode
+// options for its values: Continuous, SingleFrame, MultiFrame
 int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	int result = 0;
 	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
@@ -39,6 +51,8 @@ int configureAcquisition(INodeMap& nodeMap,string acquisitionMode){
 	cout << "After: " << ptrAcquisitionMode -> GetDisplayName() << ": " << ptrAcquisitionMode -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
 	return result;
 }
+// property name: Exposure
+// Options: a double or Auto
 int setExposure(INodeMap& nodeMap, double exposureTimeToSet){
 	int result = 0;
 	cout << endl << endl << "*** CONFIGURING EXPOSURE ***" << endl << endl;
@@ -160,11 +174,10 @@ int ResetExposure(INodeMap& nodeMap)
         result = -1;
     }
 
-    
-
-
     return result;
 }
+// parameter name: Gain
+// options: a double or Auto
 int setGain(INodeMap& nodeMap, double gainToSet){
 	// Turn off automatic gain
         // gain auto: once or continuous
@@ -176,8 +189,7 @@ int setGain(INodeMap& nodeMap, double gainToSet){
 	int result = 0;
 	try{
        		 CEnumerationPtr ptrGainAuto = nodeMap.GetNode("GainAuto");
-       		 if (IsReadable(ptrGainAuto) &&
-            	IsWritable(ptrGainAuto))
+       		 if (IsReadable(ptrGainAuto) && IsWritable(ptrGainAuto))
         	{		
             		CEnumEntryPtr ptrGainAutoOff = ptrGainAuto->GetEntryByName("Off");
             		if (IsReadable(ptrGainAutoOff))
@@ -205,7 +217,6 @@ int setGain(INodeMap& nodeMap, double gainToSet){
         	ptrGain->SetValue(gainToSet);
 
         	cout << std::fixed << "Gain set to " << gainToSet << " us"  << endl << endl;
-		cout << "After: " << ptrGain -> GetDisplayName() << ": " << ptrGain -> GetValue() << endl << endl;
     	}
     	catch (Spinnaker::Exception& e)
     	{
@@ -215,6 +226,41 @@ int setGain(INodeMap& nodeMap, double gainToSet){
 
     	return result;
 }
+int ResetGain(INodeMap& nodeMap){
+    int result = 0;
+
+    try
+    {
+        //
+        // Turn automatic gain on
+        CEnumerationPtr ptrGainAuto = nodeMap.GetNode("GainAuto");
+        if (!IsReadable(ptrGainAuto) ||
+            !IsWritable(ptrGainAuto))
+        {
+            cout << "Unable to enable automatic gain (enumeration node retrieval). Non-fatal error..." << endl << endl;
+            return -1;
+        }
+
+        CEnumEntryPtr ptrGainAutoContinuous = ptrGainAuto->GetEntryByName("Continuous");
+        if (!IsReadable(ptrGainAutoContinuous))
+        {
+            cout << "Unable to enable automatic gain (enum entry retrieval). Non-fatal error..." << endl << endl;
+            return -1;
+        }
+
+        ptrGainAuto->SetIntValue(ptrGainAutoContinuous->GetValue());
+
+        cout << "Automatic gain  enabled..." << endl << endl;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        cout << "Error: " << e.what() << endl;
+        result = -1;
+    }
+    return result;
+
+}
+parameter name: PixelFormat
 int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	int result = 0;
 	try
@@ -227,7 +273,6 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 			return -1;
 		}
         	
-		cout << "Before: " << ptrPixelFormat-> GetDisplayName() << ": " << ptrPixelFormat -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
             	//Retrieve the desired entry node from the enumeration node
             	CEnumEntryPtr ptrDesiredPixelFormat = ptrPixelFormat->GetEntryByName(gcstring(pixelFormat.c_str()));
@@ -240,7 +285,6 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
                		ptrPixelFormat->SetIntValue(DesiredPixelFormat);
 
                 	cout << "Pixel format set to " << ptrPixelFormat->GetCurrentEntry()->GetSymbolic()  << endl;
-			cout << "After: " << ptrPixelFormat -> GetDisplayName() << ": " << ptrPixelFormat -> GetCurrentEntry() -> GetSymbolic() << endl << endl;
             	}
             	else
             	{
@@ -258,34 +302,35 @@ int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	return result;
 
 }
-// X Offset: horizontal offset from the origin to the region of interes (ROI)
+// X Offset: horizontal offset in pixels from the origin to the region of interest (ROI)
+//parameter name: OffsetX
+// options: an integer in pixels
 int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	int result = 0;
 	try{
 
 		CIntegerPtr ptrOffsetX = nodeMap.GetNode("OffsetX");
-		if (IsReadable(ptrOffsetX) && IsWritable(ptrOffsetX)){
-			if (OffsetXToSet < ptrOffsetX -> GetMin()){
-				cout << "OffsetX value below the minimum (" << ptrOffsetX -> GetMin() << "). Aborting..." << endl;
-				return -1;
-			}
-			else if (OffsetXToSet > ptrOffsetX -> GetMax()){
-				cout << "OffsetX value above the maximum (" << ptrOffsetX -> GetMax() << "). Aborting... " << endl;
-				return -1;
-			}
-			else if ((OffsetXToSet - ptrOffsetX-> GetMin()) % ptrOffsetX -> GetInc() !=0){
-				cout << "The different between OffsetX and the minimum X Offset is not a multiple of the increment (" << ptrOffsetX -> GetInc() << "). Aborting..." << endl;
-				return -1;
-			}
-			else {
-				ptrOffsetX -> SetValue(OffsetXToSet);
-				cout << "Offset X set to " << OffsetXToSet << "..." << endl;
-			}
+		if (!IsReadable(ptrOffsetX) || !IsWritable(ptrOffsetX)){
+			cout << "Cannot access OffsetX node (node retrieval). Aborting..." << endl;
+			return -1;
 		}
-		else
-		{
-			cout << "Offset X not readable or writable..." << endl;
+		int incrementRemainder = (OffsetXToSet - ptrOffsetX -> GetMin()) % ptrOffsetX -> GetInc();
+		if (OffsetXToSet < ptrOffsetX -> GetMin()){
+			OffsetXToSet = ptrOffsetX -> GetMin();
+			cout << "OffsetX value below the minimum, and has been set to the minimum (" << ptrOffsetX -> GetMin() << "). Aborting..." << endl;
 		}
+		else if (OffsetXToSet > ptrOffsetX -> GetMax()){
+			OffsetXToSet = ptrOffsetX -> GetMax();
+			cout << "OffsetX value above the maximum, and has been set to the maximum(" << ptrOffsetX -> GetMax() << ").  << endl;	
+		}
+		else if (incrementRemainder !=0){
+				cout << "The different between OffsetX and the minimum is not a multiple of the increment (" << ptrOffsetX -> GetInc() << "). The X Offset has
+					been set to " << (OffsetXToSet - incrementRemainder) << endl;
+		}
+			
+		ptrOffsetX -> SetValue(OffsetXToSet);
+		cout << "Offset X set to " << OffsetXToSet << "..." << endl;
+
 	}
 	catch (Spinnaker::Exception& e)
 	{
@@ -295,41 +340,41 @@ int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 	return result;
 }
 // vertical offset from the origin to ROI
+// parameter: OffsetY
+// options: an integer in pixels
 int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 	int result = 0;
 	try{
 
 		CIntegerPtr ptrOffsetY = nodeMap.GetNode("OffsetY");
-		if (IsReadable(ptrOffsetY) && IsWritable(ptrOffsetY)){
-			if (OffsetYToSet < ptrOffsetY -> GetMin()){
-				cout << "OffsetY value below the minimum. (" << ptrOffsetY -> GetMin() << "). Aborting..." << endl;
-				return -1;
-			}
-			else if (OffsetYToSet > ptrOffsetY -> GetMax()){
-				cout << "OffsetY value above the maximum.(" << ptrOffsetY -> GetMax() << "). Aborting... " << endl;
-				return -1;
-			}
-			else if ((OffsetYToSet - ptrOffsetY-> GetMin()) % ptrOffsetY -> GetInc() !=0){
-				cout << "The different between OffsetY and the minimum is not a multiple of the increment (" << ptrOffsetY -> GetInc() << "). Aborting..." << endl;
-				return -1;
-			}
-			else {
-				ptrOffsetY -> SetValue(OffsetYToSet);
-				cout << "Offset Y set to " << OffsetYToSet << "..." << endl;
-			}
+		if (!IsReadable(ptrOffsetY) || !IsWritable(ptrOffsetY)){
+			cout << "Cannot access OffsetY node (node retrieval). Aborting..." << endl;
+			return -1;
 		}
+		int incrementRemainder = (OffsetYToSet - ptrOffsetY -> GetMin()) % ptrOffsetY -> GetInc();
+		if (OffsetYToSet < ptrOffsetY -> GetMin()){
+			OffsetYToSet = ptrOffsetY -> GetMin();
+			cout << "OffsetY value below the minimum, and has been set to the minimum (" << ptrOffsetY -> GetMin() << "). Aborting..." << endl;
+		}
+		else if (OffsetYToSet > ptrOffsetY -> GetMax()){
+			OffsetYToSet = ptrOffsetY -> GetMax();
+			cout << "OffsetY value above the maximum, and has been set to the maximum(" << ptrOffsetY -> GetMax() << ").  << endl;	
+		}
+		else if (incrementRemainder !=0){
+				cout << "The different between OffsetY and the minimum is not a multiple of the increment (" << ptrOffsetY -> GetInc() << "). The Y Offset has
+					been set to " << (OffsetYToSet - incrementRemainder) << endl;
+		}
+			
+		ptrOffsetY -> SetValue(OffsetYToSet);
+		cout << "Offset Y set to " << OffsetYToSet << "..." << endl;
 
-			else
-		{
-			cout << "Offset Y not readable or writable..." << endl;
-		}
 	}
 	catch (Spinnaker::Exception& e)
 	{
 		cout << "Error: " <<e.what() << endl;
 		result = -1;
 	}
-	return result;// set trigger activation to rising edge by default
+	return result;
 }
 // width of image in pixels provided by device reflecting the region of interest: only the pixel information from ROI is processed
 int setWidth(INodeMap& nodeMap, int64_t widthToSet){
@@ -347,7 +392,7 @@ int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 		}		
 		else if (widthToSet < ptrWidth -> GetMin()){
 			widthToSet = ptrWidth -> GetMin();
-			cout << "Desired width is larger than the maximum, and has been set to " << ptrWidth -> GetMin() << "." << endl;
+			cout << "Desired width is smaller than the minimum, and has been set to " << ptrWidth -> GetMin() << "." << endl;
 		}
 		
 		else if (incrementRemainder != 0){
@@ -357,8 +402,7 @@ int setWidth(INodeMap& nodeMap, int64_t widthToSet){
 
 		ptrWidth->SetValue(widthToSet);
 
-		cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;
-	
+		cout << "Width set to " << ptrWidth->GetValue() << "..." << endl;	
 	}
 
 	catch (Spinnaker::Exception& e)
@@ -384,7 +428,7 @@ int setHeight(INodeMap& nodeMap, int64_t heightToSet){
 		}		
 		else if (heightToSet < ptrHeight -> GetMin()){
 			heightToSet = ptrHeight -> GetMin();
-			cout << "Desired height  is larger than the maximum, and has been set to " << ptrHeight -> GetMin() << "." << endl;
+			cout << "Desired height  is smaller  than the minimum, and has been set to " << ptrHeight -> GetMin() << "." << endl;
 		}
 		
 		else if (incrementRemainder != 0){
@@ -406,9 +450,8 @@ int setHeight(INodeMap& nodeMap, int64_t heightToSet){
 	return result;
 
 }
-int setSensorWidth(INodeMap& nodeMap, int sensorWidth){
-}
-
+// parameter name: AdcBitDepth
+// Options: Bit10, etc.
 int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 	int result = 0;
 	try
@@ -420,19 +463,16 @@ int setADCBitDepth(INodeMap& nodeMap, string  bitDepth){
 			cout << "Unable to set ADC Bit Depth (enum retrieval). Aborting..." << endl << endl;
 			return -1;
 		}
-		cout << "Before: " << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl; 
 
-		CEnumerationPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
+		CEnumEntryPtr ptrAdcBitDepthDesired = ptrAdcBitDepth->GetEntryByName(gcstring(bitDepth.c_str()));
 		// error if mode is not readable
 		if (!IsReadable(ptrAdcBitDepthDesired)){
 			cout << "Unable to get or set the ADC bit depth to the desired mode. Aborting..." << endl << endl;
 			return -1;
 		}
-		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetIntValue();
+		const int64_t AdcBitDepthDesired = ptrAdcBitDepthDesired -> GetValue();
 		ptrAdcBitDepth -> SetIntValue(AdcBitDepthDesired);
-		cout << "ADC Bit Depth set to" <<  bitDepth  << endl;
-		cout << "After :" << ptrAdcBitDepth -> GetDisplayName() << ": " << ptrAdcBitDepth -> GetCurrentEntry() -> GetSymbolic() << endl;
-	
+		cout << "ADC Bit Depth set to" <<  bitDepth  << endl;	
 	}
 	catch (Spinnaker::Exception& e) { 
 		cout << "Error: " << e.what() << endl;
@@ -610,6 +650,8 @@ int configureLUT(INodeMap&nodeMap, char* LUT){
 
 	return result;
 }
+//parameter name: SensorShutterMode
+// options: Rolling for some devices, Global for some
 int setShutterMode(INodeMap& nodeMap, string shutterMode){
 	CEnumerationPtr ptrSensorShutterMode = nodeMap.GetNode("SensorShutterMode");
 	if (!IsReadable(ptrSensorShutterMode) || ! IsWritable(ptrSensorShutterMode)){
@@ -902,8 +944,8 @@ int enableChunkData(INodeMap& nodeMap){
 	return result;
 }
 
-
-
+// options: NewestFirst, NewestOnly, OldestFirst, OldestFirstOverwrite
+// default is usually OldestFirst
 int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
 	int result = 0;
 	
@@ -915,15 +957,17 @@ int setBufferHandlingMode(INodeMap& sNodeMap, string bufferHandlingMode){
 	cout << "Before: " << ptrHandlingMode -> GetDisplayName() <<  ": " << ptrHandlingMode -> GetCurrentEntry() -> GetSymbolic() << endl;
 	CEnumEntryPtr  ptrHandlingModeEntry = ptrHandlingMode -> GetEntryByName(gcstring(bufferHandlingMode.c_str()));
 	if (!IsReadable(ptrHandlingModeEntry)){
-		cout << "Unable to get Buffer Handlign mode (entry retrieval). Aborting.." << endl;
+		cout << "Unable to get Buffer Handling mode (entry retrieval). Aborting.." << endl;
 		return -1;
 	}
+
 	ptrHandlingMode-> SetIntValue(ptrHandlingModeEntry->GetValue());
 	cout << "Stream Buffer Handling Mode set to " << bufferHandlingMode << endl << endl;
-	cout <<"After: " << ptrHandlingMode -> GetDisplayName() << ": " <<  ptrHandlingMode -> GetCurrentEntry()-> GetSymbolic();
+	cout <<"After: " << ptrHandlingMode -> GetDisplayName() << ": " <<  ptrHandlingMode -> GetCurrentEntry()-> GetSymbolic() << endl;
 
 	return result;
 }
+// print all nodemap info from /usr/src/spinnaker/src/NodeMapInfo
 int prepareCameras(CameraList camList,const string fileName){
 	int result = 0;
 	ifstream configFile(fileName);
@@ -931,14 +975,13 @@ int prepareCameras(CameraList camList,const string fileName){
 	if (!configurations.is_null()){	
 		CameraPtr pCam = nullptr;
 		json cameras = configurations["Cameras"];
-			try {
-				for (unsigned int i = 0; i < camList.GetSize(); i++)
-				{
-			
+		try {
+			for (unsigned int i = 0; i < camList.GetSize(); i++)
+			{
 				pCam = camList.GetByIndex(i);
 				pCam-> Init();
 				INodeMap& nodeMap = pCam -> GetNodeMap();
-				
+				// get device serial number
 				INodeMap& nodeMapTLDevice = pCam -> GetTLDeviceNodeMap();
 				gcstring deviceSerialNumber("");
 				CStringPtr ptrStringSerial = nodeMapTLDevice.GetNode("DeviceSerialNumber");
@@ -949,11 +992,11 @@ int prepareCameras(CameraList camList,const string fileName){
 					cout << "device serial number not readable" << endl;
 					return -1;
 				}	
-
+				// access the settings from the config file associated with the current camera
 				json currentCam;
 				for (json::iterator it = cameras.begin(); it != cameras.end(); it++)
 				{
-					
+					// find serial number of each device described in file
 					if (it.value()["DeviceID"] == deviceSerialNumber){
 						currentCam = it.value();
 						cout << "Current camera: " << it.key()<< endl;	
@@ -962,40 +1005,52 @@ int prepareCameras(CameraList camList,const string fileName){
 				}
 
 				if (currentCam.is_null()){
-					cout << "No json configuration found for device with serial number" << deviceSerialNumber;
-					return -1;
+					cout << "No json configuration found for device with serial number" << deviceSerialNumber << endl;
+					continue;
 				}
+				// check is camera is specified as InUse
 				json inUse = currentCam["InUse"];
 				if (!inUse.is_boolean()){
-					cout <<"InUse parameter is not a boolean, trying next camera..." << endl;
+					cout << "InUse parameter is not a boolean, trying next camera..." << endl;
 					continue;
 				}
 			
 				if (!inUse){
 					cout << "Camera not in use: trying next camera.." << endl;
 				}
+			
+				// set acquisition mode to continuous by default, and will change if the configuration file specifies otherwise
 				string acquisitionMode = "Continuous";
 				if (!currentCam["AcquisitionMode"].is_null()){
 					acquisitionMode = currentCam["AcquisitionMode"];
 				}	
 				configureAcquisition(nodeMap,acquisitionMode);
+					
 				// set attributes
-				// check if exposure will be triggered or a set time/ automatic
-				// if timed:
-				double exposureTime;
 				if (!currentCam["Exposure"].is_null()){
-					exposureTime = currentCam["Exposure"];
+				//sets exposure to the specified time
+					if (currentCam["Exposure"].is_number()){
+					double exposureTime = currentCam["Exposure"];
 					setExposure(nodeMap, exposureTime);
-				} 
-				double gain;
-			
-				if ( !currentCam["Gain"].is_null()){
-					gain = currentCam["Gain"];
-					setGain(nodeMap, gain);
+					}
+					// puts exposure to continuous automatic if Exposure is specified in the json file but not a number
+					else{
+						ResetExposure(nodeMap);
+					}
+				} 			
+				if (!currentCam["Gain"].is_null()){
+					if (currentCam["Gain"].is_number())
+					{
+						double gain = currentCam["Gain"];
+						setGain(nodeMap, gain);
+					}
+					// sets gain to continuous automatic is Gain is specified but not a number
+					else{
+						ResetGain(nodeMap);
+					}
 				}
-				string pixelFormat;
 				if (!currentCam["PixelFormat"].is_null()){
-					pixelFormat = currentCam["PixelFormat"];		
+					string pixelFormat = currentCam["PixelFormat"];		
 					setPixelFormat(nodeMap, pixelFormat);
 				}
 				if (!currentCam["OffsetX"].is_null()){
@@ -1022,20 +1077,18 @@ int prepareCameras(CameraList camList,const string fileName){
 					setADCBitDepth(nodeMap, bitDepth);
 				}
 				if (!currentCam["SensorShutterMode"].is_null()){
-					string shutterMode = currentCam["ShutterMode"];
+					cout << currentCam << endl;
+					string shutterMode = currentCam["SensorShutterMode"];
 					setShutterMode(nodeMap, shutterMode);
 				}
-				
 				string chosenTrigger;
 				if (!currentCam["TriggerSource"].is_null()){
 					chosenTrigger = currentCam["TriggerSource"];
 				}
-				
 				string triggerType;
 				if (!currentCam["TriggerSelector"].is_null()){
 					triggerType = currentCam["TriggerSelector"];
-				}
-				
+				}	
 				string triggerActivation;
 				if (!currentCam["TriggerActivation"].is_null()){
 					triggerActivation = currentCam["TriggerActivation"];
@@ -1044,42 +1097,29 @@ int prepareCameras(CameraList camList,const string fileName){
 				if (!currentCam["TriggerOverlap"].is_null()){
 					overlap = currentCam["TriggerOverlap"];
 				}
-				double delay =-1;
-			       if(!currentCam["TriggerDelay"].is_null()){
-				       delay = currentCam["TriggerDelay"];
+				double delay = -1;
+				if(!currentCam["TriggerDelay"].is_null()){
+				     	delay = currentCam["TriggerDelay"];
 				}
 				// will not do anything if no trigger parameters specified in the config file
 				setTrigger(nodeMap, chosenTrigger,triggerType, triggerActivation,  overlap, delay);
+				// enables data to be sent along with image data
 				enableChunkData(nodeMap);
+				// sets buffer handling mode
 				if (!currentCam["StreamBufferHandlingMode"].is_null()){
 					INodeMap& sNodeMap = pCam -> GetTLStreamNodeMap();
 					string bufferHandlingMode = currentCam["StreamBufferHandlingMode"];
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
-				/* set user sets
-				if (currentCam["UserSet"].is_boolean() && currentCam["UserSet"]){
-					CEnumerationPtr ptrUserSetSelector = nodeMap.getNode("UserSetSelector");
-					ptrUserSetSelector -> SetIntValue(ptrUserSetSelector -> GetEntryByName("UserSet0")-> GetValue());
-     					CEnumerationPtr ptrUserSetFeatureSelector = nodeMap.getNode("UserSetFeatureSelector");
-     					for (json:: iterator features = currentCam.begin(); features!= currentCam.end(); ++features){
-	  					string currentFeature;
-						if (features.is_string()){
-      							currentFeature = features;
-      						}
-	    					else{
-	  						continue;
-	 					}
-						CEnumEntryPtr ptrFeatureValue = ptrUserSetFeatureSelector -> GetEntryByName(gcstring(currentFeature.c_str()));
-       						ptrUserSetFeatureSelector -> SetValue(ptrFeatureValue -> GetIntValue());
-						CBooleanPtr ptrUserSetFeatureEnable = nodeMap.getEntryByName("UserSetFeatureEnable");
-						ptrUserSetFeatureEnable -> SetValue(true);
-						CCommandPtr ptrUserSetSave = nodeMap.getEntryByName("UserSetSave");
-						ptrUserSetSave -> Execute();
-	 				}
-     					
-				}
-    				*/
-    				
+				//save current settings to userset, and set them to default so that they load the next time the camera is turned on
+				CEnumerationPtr ptrUserSelector = nodeMap.getNode("UserSetSelector");
+				ptrUserSelector -> SetIntValue(ptrUserSelector -> GetEntryByName("UserSet0") -> GetValue();
+				CCommandPtr ptrUserSetSave = nodeMap.GetNode("UserSetSave");
+				ptrUserSetSave -> Execute();
+				CEnumerationPtr ptrUserSetDefualt = nodeMap.GetNode("UserSetDefault");
+				CEnumEntryPtr ptrUserSetDefault0 = ptrUserSetDefault -> GetEntryByName("UserSet0");
+				ptrUserSetDefault -> SetIntValue(ptrUserSetDefault0 -> GetValue());
+				cout << "Settings saved to " << ptrUserSetDefault0 -> GetSymbolic() << endl;
 				pCam-> DeInit();
 			}
 		}
@@ -1095,8 +1135,6 @@ int prepareCameras(CameraList camList,const string fileName){
 		
 	return result;
 }
-
-
 
 int main(int argc, char** argv)
 {
@@ -1151,28 +1189,17 @@ int main(int argc, char** argv)
         return -1;
     }
 	else{
-		const string filename = argv[1];
-		prepareCameras(camList,filename );
-		// to find the camera serial numbers
-		/*CameraPtr pCam = nullptr;
-		for (unsigned int i = 0; i < camList.GetSize(); i++)
-		{
-				
-			pCam = camList.GetByIndex(i);
-			pCam-> Init();
-			INodeMap& nodeMap = pCam -> GetNodeMap();
-				
-			INodeMap& nodeMapTLDevice = pCam -> GetTLDeviceNodeMap();
-			gcstring deviceSerialNumber("");
-			CStringPtr ptrStringSerial = nodeMapTLDevice.GetNode("DeviceSerialNumber");
-			deviceSerialNumber = ptrStringSerial -> GetValue();
-			cout <<"device serial number: " <<  deviceSerialNumber;
+		// if no arguments given, do nothing
+		if (argc == 0){
+			cout << "No configuration file given, so no settings will be changed." << endl;
+			return -1;
 		}
-		*/
-
+		else{
+			const string filename = argv[1];
+			prepareCameras(camList,filename);
+		}
 	}
 	camList.Clear();
-	system -> ReleaseInstance();	
+	system -> ReleaseInstance();
 	return result;	
-
 }
