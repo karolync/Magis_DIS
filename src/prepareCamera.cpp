@@ -260,7 +260,7 @@ int ResetGain(INodeMap& nodeMap){
     return result;
 
 }
-parameter name: PixelFormat
+//parameter name: PixelFormat
 int setPixelFormat(INodeMap& nodeMap, string pixelFormat){
 	int result = 0;
 	try
@@ -321,7 +321,7 @@ int setOffsetX(INodeMap& nodeMap, int64_t OffsetXToSet){
 		}
 		else if (OffsetXToSet > ptrOffsetX -> GetMax()){
 			OffsetXToSet = ptrOffsetX -> GetMax();
-			cout << "OffsetX value above the maximum, and has been set to the maximum(" << ptrOffsetX -> GetMax() << ").  << endl;	
+			cout << "OffsetX value above the maximum, and has been set to the maximum(" << ptrOffsetX -> GetMax() << ")."  << endl;	
 		}
 		else if (incrementRemainder !=0){
 				cout << "The different between OffsetX and the minimum is not a multiple of the increment (" << ptrOffsetX -> GetInc() << "). The X Offset has
@@ -358,7 +358,7 @@ int setOffsetY(INodeMap& nodeMap, int64_t OffsetYToSet){
 		}
 		else if (OffsetYToSet > ptrOffsetY -> GetMax()){
 			OffsetYToSet = ptrOffsetY -> GetMax();
-			cout << "OffsetY value above the maximum, and has been set to the maximum(" << ptrOffsetY -> GetMax() << ").  << endl;	
+			cout << "OffsetY value above the maximum, and has been set to the maximum(" << ptrOffsetY -> GetMax() << ")."  << endl;	
 		}
 		else if (incrementRemainder !=0){
 				cout << "The different between OffsetY and the minimum is not a multiple of the increment (" << ptrOffsetY -> GetInc() << "). The Y Offset has
@@ -655,7 +655,7 @@ int configureLUT(INodeMap&nodeMap, char* LUT){
 int setShutterMode(INodeMap& nodeMap, string shutterMode){
 	CEnumerationPtr ptrSensorShutterMode = nodeMap.GetNode("SensorShutterMode");
 	if (!IsReadable(ptrSensorShutterMode) || ! IsWritable(ptrSensorShutterMode)){
-		cout <<"Unable to read or write sensor shutter mode" << endl;
+		cout << "Unable to read or write sensor shutter mode" << endl;
 		return -1;
 	}
 	cout << "Before: " << ptrSensorShutterMode -> GetDisplayName() << ": " << ptrSensorShutterMode -> GetCurrentEntry() -> GetSymbolic() << endl; 
@@ -796,7 +796,7 @@ int setTrigger(INodeMap& nodeMap, string source, string triggerType, string acti
 	}
 	// set trigger delay in microseconds
 	// test cameras had a minimum delay of 177 and maximum of 65520
-	if (delay >=0){
+	if (delay >= 0){
 		CFloatPtr ptrTriggerDelay = nodeMap.GetNode("TriggerDelay");
 		if (!IsReadable(ptrTriggerDelay) || !IsWritable(ptrTriggerDelay)){
 			cout << "Unable to access Trigger Delay mode. Aborting...";
@@ -1112,11 +1112,11 @@ int prepareCameras(CameraList camList,const string fileName){
 					setBufferHandlingMode(sNodeMap, bufferHandlingMode);
 				}
 				//save current settings to userset, and set them to default so that they load the next time the camera is turned on
-				CEnumerationPtr ptrUserSelector = nodeMap.getNode("UserSetSelector");
+				CEnumerationPtr ptrUserSelector = nodeMap.GetNode("UserSetSelector");
 				ptrUserSelector -> SetIntValue(ptrUserSelector -> GetEntryByName("UserSet0") -> GetValue();
 				CCommandPtr ptrUserSetSave = nodeMap.GetNode("UserSetSave");
 				ptrUserSetSave -> Execute();
-				CEnumerationPtr ptrUserSetDefualt = nodeMap.GetNode("UserSetDefault");
+				CEnumerationPtr ptrUserSetDefault = nodeMap.GetNode("UserSetDefault");
 				CEnumEntryPtr ptrUserSetDefault0 = ptrUserSetDefault -> GetEntryByName("UserSet0");
 				ptrUserSetDefault -> SetIntValue(ptrUserSetDefault0 -> GetValue());
 				cout << "Settings saved to " << ptrUserSetDefault0 -> GetSymbolic() << endl;
@@ -1190,7 +1190,7 @@ int main(int argc, char** argv)
     }
 	else{
 		// if no arguments given, do nothing
-		if (argc == 0){
+		if (argc < 2){
 			cout << "No configuration file given, so no settings will be changed." << endl;
 			return -1;
 		}
